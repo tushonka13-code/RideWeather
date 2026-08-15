@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Motorcycle navigation — prototype 1.5</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#18212b;background:#f4f6f8}
+body{margin:0}.wrap{max-width:1500px;margin:32px auto;padding:0 24px}
+h1{font-size:42px;margin:0 0 24px}.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 5px 24px #00000012}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.field label{display:block;font-weight:700;font-size:19px;margin-bottom:8px}
+input[type=text]{width:100%;box-sizing:border-box;padding:15px;border:1px solid #bbb;border-radius:10px;font-size:19px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;align-items:end}.inline{font-weight:700;font-size:19px}
+.rangeRow{display:flex;align-items:center;gap:16px}.rangeRow input{padding:0}.pct{font-size:19px;font-weight:700;width:55px}
+.check{display:flex;gap:9px;align-items:center;font-weight:700;font-size:19px}.check input{width:auto}
+button{width:100%;padding:15px;border:0;border-radius:10px;background:#1976b8;color:#fff;font-size:19px;font-weight:800;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
+#error{margin-top:16px;color:#b00000;font-size:17px;min-height:22px}#status{margin-top:6px;color:#4b5563}
+.results{margin-top:20px;display:grid;grid-template-columns:350px 1fr;gap:20px}.summary{padding:18px;border:1px solid #ddd;border-radius:12px;background:#fafafa}
+.metric{font-size:17px;margin:12px 0}.metric b{font-size:25px}.small{font-size:13px;color:#68727d;line-height:1.45}
+#map{height:620px;border-radius:14px;overflow:hidden}
+.departure{display:flex;align-items:end;gap:14px;margin-top:20px}.departure .field{flex:1}.departure-note{font-size:13px;color:#68727d;margin-top:6px}
+.weather{margin-top:18px}.weather h3{margin:0 0 10px;font-size:19px}.weather-note{font-size:12px;color:#68727d;margin-bottom:10px}
+.weather-list{display:grid;gap:8px}.wx{border:1px solid #ddd;border-radius:10px;padding:10px;background:#fff}
+.wx-head{display:flex;justify-content:space-between;gap:8px;font-weight:800}.wx-main{font-size:14px;margin-top:4px}.wx-detail{font-size:12px;color:#59636d;margin-top:3px}
+.badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800;background:#eee}
+.badge.risk{background:#ffe2e2;color:#a40000}.badge.watch{background:#fff1c7;color:#765500}
+.route-choice{margin-top:14px;padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;font-size:13px}
+.route-choice b{font-size:14px}
+.route-list{display:grid;gap:8px;margin-top:10px}
+.route-option{width:100%;padding:11px 12px;text-align:left;border:1px solid #d7dce1;border-radius:10px;background:#fff;color:#18212b;font-size:14px;font-weight:700;cursor:pointer}
+.route-option:hover{border-color:#1976b8;background:#f5faff}
+.route-option.selected{border:2px solid #1976b8;background:#eef7ff}
+.route-option .route-meta{display:block;margin-top:4px;font-size:12px;font-weight:500;color:#68727d}
+.route-option .route-tag{float:right;font-size:11px;padding:3px 7px;border-radius:999px;background:#e9f3fb;color:#155d8d}
+
+.legend{font-size:12px;color:#68727d;margin-top:8px}
+.leaflet-popup-content{font-size:14px}
+@media(max-width:900px){.grid,.controls,.results{grid-template-columns:1fr}h1{font-size:34px}}
+
+.nav-card{margin-top:20px;padding:18px;border:1px solid #d8dde2;border-radius:12px;background:#f8fafc}
+.nav-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.nav-head h3{margin:0;font-size:20px}
+.nav-state{font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px;background:#e8eef3;color:#41515f}
+.nav-state.live{background:#e2f5e9;color:#176b3a}
+.nav-next{margin-top:14px;padding:16px;border-radius:12px;background:#fff;border:1px solid #d8dde2}
+.nav-next .distance{font-size:30px;font-weight:900;line-height:1}
+.nav-next .instruction{font-size:19px;font-weight:800;margin-top:7px}
+.nav-next .road{font-size:14px;color:#59636d;margin-top:5px}
+.nav-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.nav-actions button{font-size:15px;padding:12px}
+.nav-actions .secondary{background:#fff;color:#18212b;border:1px solid #c8d0d7}
+.maneuver-list{margin-top:12px;max-height:260px;overflow:auto;display:grid;gap:6px}
+.maneuver{padding:9px 10px;border-radius:9px;background:#fff;border:1px solid #e0e4e8;font-size:13px}
+.maneuver.active{border-color:#1976b8;background:#eef7ff}
+.maneuver .mi{font-weight:800;display:inline-block;width:70px}
+.nav-note{font-size:12px;color:#68727d;line-height:1.45;margin-top:10px}
+@media(max-width:600px){.nav-actions{grid-template-columns:1fr}.nav-next .distance{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Motorcycle navigation — prototype 1.5</h1>
+<div class="card">
+  <div class="grid">
+    <div class="field"><label for="start">Start</label><input id="start" type="text" value="Old Fort, NC"></div>
+    <div class="field"><label for="dest">Destination</label><input id="dest" type="text" value="Mountain City, TN"></div>
+  </div>
+  <div class="controls">
+    <div>
+      <label class="inline" for="curviness">Curviness</label>
+      <div class="rangeRow"><input id="curviness" type="range" min="0" max="100" value="80"><span id="pct" class="pct">80%</span></div>
+    </div>
+    <label class="check"><input id="gravel" type="checkbox" checked> Never allow gravel</label>
+    <label class="check"><input id="highways" type="checkbox" checked> Avoid highways</label>
+    <button id="calc">Calculate Ride</button>
+  </div>
+  <div class="departure">
+    <div class="field">
+      <label class="inline" for="departure">Ride start time</label>
+      <input id="departure" type="datetime-local">
+      <div class="departure-note">Weather is calculated from this departure time and advances along the route using the estimated ride time.</div>
+    </div>
+  </div>
+  <div id="error"></div><div id="status"></div>
+</div>
+
+<div class="results">
+  <div class="summary">
+    <h2>Ride</h2>
+    <div id="metrics" class="small">Enter locations and calculate a ride.</div><div id="routeChoices"></div>
+    <div id="weather" class="weather"></div>
+    <div class="nav-card">
+      <div class="nav-head"><h3>Turn-by-turn navigation</h3><span id="navState" class="nav-state">Ready</span></div>
+      <div class="nav-next">
+        <div id="navDistance" class="distance">—</div>
+        <div id="navInstruction" class="instruction">Calculate a ride, then start navigation.</div>
+        <div id="navRoad" class="road"></div>
+      </div>
+      <div class="nav-actions">
+        <button id="startNav" disabled>Start Navigation</button>
+        <button id="stopNav" class="secondary" disabled>Stop Navigation</button>
+      </div>
+      <div id="maneuverList" class="maneuver-list"></div>
+      <div class="nav-note">Navigation uses your device's GPS and browser speech synthesis. Keep the phone mounted and use normal safe riding practices; GPS accuracy can vary in mountains and the browser may restrict background operation.</div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const map=L.map('map').setView([35.9,-82.1],9);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19,
+  attribution:'&copy; Esri, HERE, Garmin, Intermap, increment P Corp., GEBCO, USGS, FAO, NPS, NRCAN, GeoBase, IGN, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), OpenStreetMap contributors, and the GIS User Community'
+}).addTo(map);
+L.control.scale({imperial:true,metric:false}).addTo(map);
+
+let routeLayer=null, routeCasing=null, alternateLayers=[], markers=[], weatherMarkers=[], currentRouteCandidates=[];
+let navWatchId=null, navMarker=null, navAccuracy=null, navActive=false, navLastManeuver=-1, navRouteData=null, navLastSpeak=0;
+$('curviness').addEventListener('input',()=>$('pct').textContent=$('curviness').value+'%');
+
+function setDefaultDeparture(){
+  const d=new Date();
+  d.setSeconds(0,0);
+  d.setMinutes(Math.ceil(d.getMinutes()/5)*5);
+  const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  $('departure').value=local;
+  $('departure').min=local;
+}
+setDefaultDeparture();
+
+function showError(x){$('error').textContent=x||''}
+function miles(x){return Number(x||0).toFixed(1)}
+function minutes(x){return Math.round(Number(x||0))}
+function mph(distance,timeMinutes){return timeMinutes>0?(distance/(timeMinutes/60)).toFixed(1):'—'}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+async function geocode(q){
+  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q='+encodeURIComponent(q);
+  const r=await fetch(url,{headers:{'Accept':'application/json'}});
+  let d; try{d=await r.json()}catch{throw Error('Geocoding returned invalid data (HTTP '+r.status+').')}
+  if(!r.ok) throw Error('Geocoding failed (HTTP '+r.status+').');
+  if(!d.length) throw Error('Could not find "'+q+'". Try a more specific place.');
+  return {lat:+d[0].lat,lon:+d[0].lon,name:d[0].display_name};
+}
+
+function decodePolyline6(str){
+  let i=0,lat=0,lon=0,out=[];
+  while(i<str.length){
+    let b,shift=0,result=0;
+    do{b=str.charCodeAt(i++)-63;result|=(b&31)<<shift;shift+=5}while(b>=32);
+    lat+=(result&1)?~(result>>1):(result>>1);
+    shift=0;result=0;
+    do{b=str.charCodeAt(i++)-63;result|=(b&31)<<shift;shift+=5}while(b>=32);
+    lon+=(result&1)?~(result>>1):(result>>1);
+    out.push([lat/1e6,lon/1e6]);
+  }
+  return out;
+}
+function getShape(trip){
+  const pts=[];
+  for(const leg of trip.legs||[]){
+    if(!leg.shape)continue;
+    const d=decodePolyline6(leg.shape);
+    if(pts.length&&d.length)pts.push(...d.slice(1));else pts.push(...d);
+  }
+  if(!pts.length)throw Error('Routing returned no map geometry.');
+  return pts;
+}
+function normalizeTrip(d){
+  const trip=d?.trip||d;
+  if(!trip||typeof trip!=='object')throw Error('Routing returned no trip object.');
+  if(trip.status&&trip.status!==0)throw Error('Routing failed: '+(trip.status_message||('status '+trip.status)));
+  let legs=trip.legs;
+  if(Array.isArray(legs)){}
+  else if(legs&&typeof legs==='object')legs=Object.values(legs);
+  else if(typeof trip.shape==='string'&&trip.shape.length)legs=[{shape:trip.shape,maneuvers:[]}];
+  else throw Error('Routing returned a trip without route legs.');
+  if(!legs.length)throw Error('Routing returned an empty route.');
+  trip.legs=legs;
+  return trip;
+}
+
+async function routeRequest(locations,opts){
+  const body={
+    locations:locations.map(x=>({lat:x.lat,lon:x.lon,type:'break'})),
+    costing:'motorcycle',
+    costing_options:{motorcycle:{
+      use_highway:opts.useHighway,
+      use_trails:0,
+      exclude_unpaved:!!opts.gravel,
+      shortest:!!opts.shortest
+    }},
+    units:'miles',
+    alternates:2,
+    directions_options:{units:'miles'}
+  };
+  const url='https://valhalla1.openstreetmap.de/route?json='+encodeURIComponent(JSON.stringify(body));
+  const r=await fetch(url,{headers:{'Accept':'application/json'}});
+  let d;try{d=await r.json()}catch{throw Error('Routing returned invalid data (HTTP '+r.status+').')}
+  if(!r.ok)throw Error('Routing failed (HTTP '+r.status+'). '+(d?.error||d?.error_message||''));
+  if(d?.error)throw Error('Routing failed: '+d.error);
+  const trips=[normalizeTrip(d)];
+  for(const a of (d?.alternates||[])){
+    try{if(a?.trip)trips.push(normalizeTrip(a.trip));}catch{}
+  }
+  return trips;
+}
+
+function haversine(a,b){
+  const R=3958.7613, p=Math.PI/180;
+  const dLat=(b[0]-a[0])*p,dLon=(b[1]-a[1])*p;
+  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*p)*Math.cos(b[0]*p)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function bearing(a,b){
+  const p=Math.PI/180, y=Math.sin((b[1]-a[1])*p)*Math.cos(b[0]*p);
+  const x=Math.cos(a[0]*p)*Math.sin(b[0]*p)-Math.sin(a[0]*p)*Math.cos(b[0]*p)*Math.cos((b[1]-a[1])*p);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function angleDiff(a,b){let d=Math.abs(a-b)%360;return d>180?360-d:d}
+
+/*
+  Estimate how twisty a route is from its returned geometry.
+  We sample roughly every 0.1 mile, so tiny polyline wiggles don't inflate
+  the score. The score is intentionally relative: it is used to choose
+  among Valhalla's alternate candidate routes, not to claim a road-grade
+  curvature measurement.
+*/
+function curveScore(trip){
+  const pts=getShape(trip);
+  let total=0, changes=0, significant=0, prevBearing=null, carry=0, last=null;
+  for(let i=1;i<pts.length;i++){
+    const seg=haversine(pts[i-1],pts[i]); total+=seg; carry+=seg;
+    if(carry<0.10)continue;
+    const br=bearing(last||pts[i-1],pts[i]); last=pts[i]; carry=0;
+    if(prevBearing!==null){
+      const d=angleDiff(prevBearing,br);
+      changes+=d;
+      if(d>=12)significant++;
+    }
+    prevBearing=br;
+  }
+  if(total<1)return 0;
+  return (changes/total)*0.75+(significant/total)*18;
+}
+function turns(trip){
+  return (trip.legs||[]).reduce((n,l)=>n+(l.maneuvers||[]).filter(m=>m.type!==1).length,0);
+}
+function routeTime(trip){return ((trip.summary||{}).time||0)/60}
+
+async function buildRoute(locations,curviness,gravel,highways){
+  const c=curviness/100;
+  const highBase=highways?0.02:1.0;
+  // Run several differently weighted searches. Valhalla also returns alternates,
+  // giving us a small pool of genuinely different motorcycle routes.
+  const searches=[
+    {useHighway:highBase,shortest:false,gravel},
+    {useHighway:highways?0.002:Math.max(0.15,1.0-0.65*c),shortest:c>0.45,gravel},
+    {useHighway:highways?0.02:Math.max(0.05,1.0-0.85*c),shortest:false,gravel}
+  ];
+  const all=[];
+  for(const opts of searches){
+    const trips=await routeRequest(locations,opts);
+    for(const t of trips){
+      const key=(t.legs||[]).map(l=>l.shape||'').join('|');
+      if(key&&!all.some(x=>x.key===key))all.push({trip:t,key});
+    }
+  }
+  if(!all.length)throw Error('No route candidates were returned.');
+
+  const scored=all.map(x=>{
+    const s=x.trip.summary||{}, dist=Number(s.length||0), tm=routeTime(x.trip);
+    const curve=curveScore(x.trip);
+    const targetWeight=0.12+0.88*c;
+    const baseTime=tm>0?Math.min(1,dist/(tm/60)/70):0;
+    const detourPenalty=Math.max(0,dist-110)/40;
+    const score=targetWeight*curve+(1-targetWeight)*(baseTime*10)-detourPenalty;
+    return {...x,curve,score,dist,tm};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+
+  // Keep the best three meaningfully different candidates. This makes
+  // "alternate routes" useful without overwhelming the rider.
+  const candidates=[];
+  for(const x of scored){
+    const tooSimilar=candidates.some(y=>{
+      const dd=Math.abs(x.dist-y.dist)/Math.max(1,y.dist);
+      const tt=Math.abs(x.tm-y.tm)/Math.max(1,y.tm);
+      return dd<0.025 && tt<0.025;
+    });
+    if(!tooSimilar)candidates.push(x);
+    if(candidates.length>=3)break;
+  }
+  return candidates.length?candidates:[scored[0]];
+}
+
+function clearMapLayers(){
+  if(routeLayer)map.removeLayer(routeLayer);
+  if(routeCasing)map.removeLayer(routeCasing);
+  alternateLayers.forEach(m=>map.removeLayer(m));alternateLayers=[];
+  markers.forEach(m=>map.removeLayer(m));markers=[];
+  weatherMarkers.forEach(m=>map.removeLayer(m));weatherMarkers=[];
+}
+
+function render(trip,start,dest,curve,candidates=[],selectedIndex=0){
+  const shape=getShape(trip);
+  clearMapLayers();
+
+  // A thin white casing keeps the route visible without hiding street names.
+  routeCasing=L.polyline(shape,{weight:8,opacity:.95,color:'#fff',lineCap:'round',lineJoin:'round'}).addTo(map);
+  routeLayer=L.polyline(shape,{weight:4,opacity:.95,color:'#1976b8',lineCap:'round',lineJoin:'round'}).addTo(map);
+
+  // Show alternates as subdued solid lines; selected route remains prominent.
+  candidates.forEach((c,i)=>{
+    if(i===selectedIndex)return;
+    const alt=L.polyline(getShape(c.trip),{weight:3,opacity:.42,color:'#66727d',lineCap:'round',lineJoin:'round'}).addTo(map);
+    alternateLayers.push(alt);
+    alt.on('click',()=>selectRoute(i,start,dest));
+  });
+
+  markers.push(L.marker([start.lat,start.lon]).addTo(map).bindPopup('Start'));
+  markers.push(L.marker([dest.lat,dest.lon]).addTo(map).bindPopup('Destination'));
+  map.fitBounds(routeLayer.getBounds(),{padding:[25,25]});
+
+  const s=trip.summary||{}, dist=Number(s.length||0), tm=routeTime(trip);
+  $('metrics').innerHTML=
+    '<div class="metric">Distance<br><b>'+miles(dist)+' mi</b></div>'+
+    '<div class="metric">Estimated ride time<br><b>'+minutes(tm)+' min</b></div>'+
+    '<div class="metric">Average moving speed<br><b>'+mph(dist,tm)+' mph</b></div>'+
+    '<div class="metric">Turns<br><b>'+turns(trip)+'</b></div>'+
+    '<div class="metric">Departure<br><b>'+new Date($('departure').value).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'</b></div>'+
+    '<div class="small">Motorcycle routing. Gravel exclusion: '+($('gravel').checked?'ON':'OFF')+
+    '. Highway avoidance: '+($('highways').checked?'ON':'OFF')+
+    '. Curviness preference: '+Math.round(curve*10)/10+' score.</div>';
+
+  renderRouteChoices(candidates,selectedIndex);
+  navRouteData=buildNavigationData(trip,shape);
+  navLastManeuver=-1;
+  $('startNav').disabled=false;
+  $('stopNav').disabled=true;
+  setNavState('Ready',false);
+  renderManeuvers();
+}
+
+function renderRouteChoices(candidates,selectedIndex){
+  const box=$('routeChoices');
+  if(!candidates||candidates.length<2){box.innerHTML='';return;}
+  box.innerHTML='<div class="route-choice"><b>Alternate routes</b>'+
+    '<div class="small">These alternatives were calculated with the same curviness, gravel, and highway settings.</div>'+
+    '<div class="route-list">'+candidates.map((c,i)=>{
+      const tag=i===selectedIndex?'Selected':(i===0?'Best match':'Alternate');
+      return '<button class="route-option '+(i===selectedIndex?'selected':'')+'" data-route-index="'+i+'">'+
+        '<span class="route-tag">'+tag+'</span>'+
+        'Route '+(i+1)+' · '+miles(c.dist)+' mi · '+minutes(c.tm)+' min'+
+        '<span class="route-meta">Curviness '+Math.round(c.curve*10)/10+' · '+turns(c.trip)+' turns</span>'+
+        '</button>';
+    }).join('')+'</div></div>';
+  box.querySelectorAll('.route-option').forEach(btn=>{
+    btn.addEventListener('click',()=>selectRoute(+btn.dataset.routeIndex,lastStart,lastDest));
+  });
+}
+
+let lastStart=null,lastDest=null,lastDeparture=null;
+async function selectRoute(index,start=lastStart,dest=lastDest){
+  if(!currentRouteCandidates[index]||!start||!dest)return;
+  const chosen=currentRouteCandidates[index];
+  lastStart=start;lastDest=dest;
+  render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,index);
+  $('weather').innerHTML='<div class="weather-note">Loading weather along selected route…</div>';
+  try{
+    await loadWeather(getShape(chosen.trip),routeTime(chosen.trip),lastDeparture);
+  }catch(e){
+    $('weather').innerHTML='<div class="weather-note">Weather could not be loaded for this route: '+esc(e.message||e)+'</div>';
+  }
+}
+
+function weatherIcon(code){
+  if(code===0)return '☀️ Clear';
+  if([1,2].includes(code))return '🌤 Partly cloudy';
+  if(code===3)return '☁️ Cloudy';
+  if([45,48].includes(code))return '🌫 Fog';
+  if([51,53,55,56,57].includes(code))return '🌦 Drizzle';
+  if([61,63,65,66,67].includes(code))return '🌧 Rain';
+  if([71,73,75,77].includes(code))return '🌨 Snow';
+  if([80,81,82].includes(code))return '🌦 Showers';
+  if([95,96,99].includes(code))return '⛈ Thunderstorm';
+  return 'Weather';
+}
+function weatherRisk(p,code,gust){
+  if([95,96,99].includes(code)||p>=70)return ['risk','Rain/storm risk'];
+  if(p>=35||gust>=30)return ['watch','Weather watch'];
+  return ['',''];
+}
+function sampleRoute(shape,n=6){
+  const out=[], total=shape.reduce((a,p,i)=>i?a+haversine(shape[i-1],p):0,0);
+  if(!total)return shape.slice(0,n).map((point,i)=>({point,fraction:n<=1?0:i/(n-1)}));
+  const targets=[];
+  for(let i=0;i<n;i++)targets.push((total*i)/(n-1));
+  let idx=0,acc=0;
+  for(const target of targets){
+    while(idx<shape.length-1 && acc+haversine(shape[idx],shape[idx+1])<target){
+      acc+=haversine(shape[idx],shape[idx+1]);idx++;
+    }
+    out.push({point:shape[idx],fraction:target/total});
+  }
+  return out;
+}
+function nearestHourIndex(times,targetMs,offsetSeconds=0){
+  let best=0,bd=Infinity;
+  times.forEach((x,i)=>{
+    const m=/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})/.exec(x);
+    if(!m)return;
+    const utc=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5])-offsetSeconds*1000;
+    const d=Math.abs(utc-targetMs);
+    if(d<bd){bd=d;best=i}
+  });
+  return best;
+}
+
+async function loadWeather(shape,routeMinutes,departureDate){
+  const samples=sampleRoute(shape,6);
+  const points=samples.map(x=>x.point);
+  const lat=points.map(p=>p[0].toFixed(4)).join(',');
+  const lon=points.map(p=>p[1].toFixed(4)).join(',');
+  const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&hourly=temperature_2m,precipitation_probability,precipitation,rain,showers,weather_code,wind_speed_10m,wind_gusts_10m,visibility'+
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=16';
+  const r=await fetch(url);
+  if(!r.ok)throw Error('Weather service failed (HTTP '+r.status+').');
+  const data=await r.json();
+  const arr=Array.isArray(data)?data:[data];
+  if(!arr.length)throw Error('Weather service returned no forecast data.');
+  const cards=[];
+  arr.forEach((w,i)=>{
+    const sample=samples[i];
+    const etaMs=departureDate.getTime()+(routeMinutes*sample.fraction*60000);
+    const idx=nearestHourIndex(w.hourly.time,etaMs,Number(w.utc_offset_seconds||0));
+    const temp=w.hourly.temperature_2m[idx], pop=w.hourly.precipitation_probability[idx]||0;
+    const precip=w.hourly.precipitation[idx]||0, rain=w.hourly.rain[idx]||0, showers=w.hourly.showers[idx]||0;
+    const wind=w.hourly.wind_speed_10m[idx]||0, gust=w.hourly.wind_gusts_10m[idx]||0, vis=w.hourly.visibility[idx];
+    const code=w.hourly.weather_code[idx];
+    const [cls,label]=weatherRisk(pop,code,gust);
+    cards.push({point:sample.point,eta:new Date(etaMs),temp,pop,precip,rain,showers,wind,gust,vis,code,cls,label});
+  });
+  weatherMarkers=cards.map((x,i)=>L.circleMarker(x.point,{radius:7,weight:2,fillOpacity:.85}).addTo(map)
+    .bindPopup('<b>Weather point '+(i+1)+'</b><br>'+weatherIcon(x.code)+
+      '<br>'+Math.round(x.temp)+'°F · '+Math.round(x.pop)+'% rain chance'+
+      '<br>ETA '+x.eta.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+
+      '<br>Wind '+Math.round(x.wind)+' mph, gusts '+Math.round(x.gust)+' mph'));
+  renderWeather(cards,departureDate);
+}
+function renderWeather(cards,departureDate){
+  $('weather').innerHTML='<h3>Weather along the ride</h3>'+
+    '<div class="weather-note">Departure: <b>'+departureDate.toLocaleString([], {dateStyle:'short',timeStyle:'short'})+
+    '</b>. Forecast is matched to your estimated arrival time at each section of the route.</div>'+
+    '<div class="weather-list">'+cards.map((x,i)=>{
+      const visMi=x.vis==null?'—':(x.vis/1609.344).toFixed(1)+' mi';
+      const rain=x.precip>0.05?' · '+x.precip.toFixed(2)+' mm/h':'';
+      return '<div class="wx"><div class="wx-head"><span>'+(['Start','Early','Mid-1','Mid-2','Late','Destination'][i]||'Route')+
+        '</span><span class="badge '+x.cls+'">'+(x.label||'Good')+'</span></div>'+
+        '<div class="wx-main">'+weatherIcon(x.code)+' · '+Math.round(x.temp)+'°F · '+Math.round(x.pop)+'% rain chance'+rain+'</div>'+
+        '<div class="wx-detail">ETA '+x.eta.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+
+        ' · Wind '+Math.round(x.wind)+' mph, gusts '+Math.round(x.gust)+' mph · Visibility '+visMi+'</div>'+
+        '</div>';
+    }).join('')+'</div>'+
+    '<div class="legend">Weather data: Open-Meteo forecast. Conditions can change, especially in the mountains.</div>';
+}
+
+
+function setNavState(text,live){
+  const el=$('navState');el.textContent=text;el.className='nav-state'+(live?' live':'');
+}
+function fmtDistance(mi){
+  if(mi<0.1)return 'At turn';
+  if(mi<0.95)return Math.max(0.1,mi).toFixed(1)+' mi';
+  return mi.toFixed(1)+' mi';
+}
+function buildNavigationData(trip,shape){
+  const legs=trip.legs||[], maneuvers=[];
+  let offset=0;
+  for(const leg of legs){
+    for(const m of (leg.maneuvers||[])){
+      const begin=offset+(Number(m.begin_shape_index)||0);
+      maneuvers.push({...m,shapeIndex:Math.min(shape.length-1,begin)});
+    }
+    offset+=Math.max(0,(leg.shape?decodePolyline6(leg.shape).length:0)-1);
+  }
+  // De-duplicate adjacent maneuvers and ignore the initial "start" maneuver.
+  const clean=maneuvers.filter((m,i)=>i===0||m.shapeIndex!==maneuvers[i-1].shapeIndex||m.instruction!==maneuvers[i-1].instruction);
+  const cumulative=[0];
+  for(let i=1;i<shape.length;i++)cumulative[i]=cumulative[i-1]+haversine(shape[i-1],shape[i]);
+  return {shape,maneuvers:clean,cumulative};
+}
+function nearestShapeIndex(point,shape){
+  let best=0,score=Infinity;
+  // Fast enough for a prototype; compare squared degree distance.
+  for(let i=0;i<shape.length;i++){
+    const dy=shape[i][0]-point[0],dx=(shape[i][1]-point[1])*Math.cos(point[0]*Math.PI/180);
+    const d=dy*dy+dx*dx;
+    if(d<score){score=d;best=i}
+  }
+  return best;
+}
+function renderManeuvers(activeIndex=navLastManeuver){
+  const box=$('maneuverList');
+  if(!navRouteData){box.innerHTML='';return;}
+  const ms=navRouteData.maneuvers||[];
+  box.innerHTML=ms.slice(0,30).map((m,i)=>{
+    const d=navRouteData.cumulative[m.shapeIndex]||0;
+    const cls=i===activeIndex?'maneuver active':'maneuver';
+    return '<div class="'+cls+'"><span class="mi">'+m.type+'</span>'+esc(m.instruction||'Continue')+
+      '<div class="small">'+m.shapeIndex+' · route mile '+d.toFixed(1)+'</div></div>';
+  }).join('');
+  const active=box.querySelector('.active');
+  if(active)active.scrollIntoView({block:'nearest'});
+}
+function speak(text){
+  if(!('speechSynthesis' in window))return;
+  const now=Date.now();
+  if(now-navLastSpeak<2500)return;
+  navLastSpeak=now;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=0.95;u.pitch=1;
+  window.speechSynthesis.speak(u);
+}
+function updateNavigation(position){
+  if(!navActive||!navRouteData)return;
+  const p=[position.coords.latitude,position.coords.longitude];
+  const idx=nearestShapeIndex(p,navRouteData.shape);
+  const ms=navRouteData.maneuvers||[];
+  let next=-1;
+  for(let i=0;i<ms.length;i++){
+    if(ms[i].shapeIndex>idx+2){next=i;break;}
+  }
+  if(next<0){
+    $('navDistance').textContent='Arriving';
+    $('navInstruction').textContent='You are at or near your destination.';
+    $('navRoad').textContent='';
+    setNavState('Arriving',true);
+    return;
+  }
+  const dist=Math.max(0,navRouteData.cumulative[ms[next].shapeIndex]-navRouteData.cumulative[idx]);
+  $('navDistance').textContent=fmtDistance(dist);
+  $('navInstruction').textContent=ms[next].instruction||'Continue';
+  $('navRoad').textContent=ms[next].street_names?.length?'Road: '+ms[next].street_names.join(' / '):'';
+  renderManeuvers(next);
+  // Voice cues: announce at roughly 0.5 mi, then again close to the turn.
+  if(next!==navLastManeuver){
+    navLastManeuver=next;
+    if(dist<0.6)speak(ms[next].instruction||'Upcoming turn');
+  } else if(dist<0.15 && dist>0.03){
+    speak(ms[next].instruction||'Turn ahead');
+  }
+  if(navMarker)navMarker.setLatLng(p);
+  if(navAccuracy)navAccuracy.setLatLng(p).setRadius(position.coords.accuracy||30);
+  setNavState('GPS navigation',true);
+  if(position.coords.accuracy<80)map.panTo(p,{animate:true,duration:.4});
+}
+function startNavigation(){
+  if(!navRouteData){showError('Calculate a ride before starting navigation.');return;}
+  if(!navigator.geolocation){showError('This browser does not provide GPS location.');return;}
+  navActive=true;navLastManeuver=-1;navLastSpeak=0;
+  setNavState('Getting GPS…',true);
+  $('startNav').disabled=true;$('stopNav').disabled=false;
+  if(!navMarker){
+    navMarker=L.circleMarker([0,0],{radius:8,weight:3,fillOpacity:.95}).addTo(map).bindTooltip('You',{permanent:false});
+    navAccuracy=L.circle([0,0],{radius:30,weight:1,fillOpacity:.08}).addTo(map);
+  }
+  const opts={enableHighAccuracy:true,maximumAge:3000,timeout:15000};
+  navWatchId=navigator.geolocation.watchPosition(updateNavigation,err=>{
+    setNavState('GPS unavailable',false);
+    showError('GPS: '+(err.message||'Unable to get your location.'));
+  },opts);
+  speak('Navigation started. '+(navRouteData.maneuvers?.[0]?.instruction||'Follow the route.'));
+}
+function stopNavigation(){
+  navActive=false;
+  if(navWatchId!==null){navigator.geolocation.clearWatch(navWatchId);navWatchId=null;}
+  if('speechSynthesis' in window)window.speechSynthesis.cancel();
+  $('startNav').disabled=!navRouteData;$('stopNav').disabled=true;
+  setNavState('Stopped',false);
+}
+$('startNav').addEventListener('click',startNavigation);
+$('stopNav').addEventListener('click',stopNavigation);
+
+$('calc').addEventListener('click',async()=>{
+  const b=$('calc');b.disabled=true;showError('');$('weather').innerHTML='';$('status').textContent='Finding locations…';
+  try{
+    const st=$('start').value.trim(), de=$('dest').value.trim();
+    if(!st||!de)throw Error('Enter both a start and destination.');
+    if(!$('departure').value)throw Error('Choose a ride start time.');
+    const departureDate=new Date($('departure').value);
+    if(Number.isNaN(departureDate.getTime()))throw Error('Choose a valid ride start time.');
+    const [start,dest]=await Promise.all([geocode(st),geocode(de)]);
+    $('status').textContent='Calculating motorcycle route candidates…';
+    currentRouteCandidates=await buildRoute([start,dest],+$('curviness').value,$('gravel').checked,$('highways').checked);
+    lastStart=start;lastDest=dest;lastDeparture=departureDate;
+    const chosen=currentRouteCandidates[0];
+    render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,0);
+    $('status').textContent=currentRouteCandidates.length>1
+      ? 'Route calculated — alternates are available below the ride summary.'
+      : 'Route calculated — selected the strongest candidate for your curviness setting.';
+    $('weather').innerHTML='<div class="weather-note">Loading weather along route…</div>';
+    await loadWeather(getShape(chosen.trip),routeTime(chosen.trip),departureDate);
+  }catch(e){
+    console.error(e);showError(e?.message||String(e));$('status').textContent='Route not calculated.';
+  }finally{b.disabled=false}
+});
+</script>
+</body>
+</html>
