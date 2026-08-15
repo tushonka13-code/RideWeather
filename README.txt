@@ -1,16 +1,14 @@
-RideWeather Prototype 1.3
-Change: route line is thinner, semi-transparent, and dashed so street names remain readable beneath the route.
+RideWeather Prototype 1.6
+
+Mobile reliability fixes:
+- Routing uses POST and identifies the app to the public Valhalla demo service.
+- Routing requests have an 18-second timeout.
+- If one alternate-route request fails, successful candidates are still used.
+- Weather has a 12-second timeout and no longer blocks the route from becoming usable.
+- The Calculate Ride button is re-enabled as soon as the route is ready.
 
 
-Prototype 1.4 changes:
-- Solid route line with white casing for improved street-name readability.
-- Up to three route candidates shown under the same curviness/gravel/highway settings.
-- Click an alternate route to select it; weather recalculates for that route.
-- Alternate routes are shown as subdued solid lines on the map.
+Prototype 1.7: improved rural-address geocoding with multiple fallback geocoders and ZIP normalization.
 
 
-Prototype 1.5 changes:
-- Added standalone browser turn-by-turn navigation using device GPS.
-- Added current-position marker and GPS accuracy circle.
-- Added next-turn distance, maneuver list, and browser voice guidance.
-- Navigation follows the selected RideWeather route rather than handing off to Google Maps.
+Prototype 1.8: stronger rural-address geocoding using ArcGIS and U.S. Census fallbacks, with more tolerant OpenStreetMap matching.

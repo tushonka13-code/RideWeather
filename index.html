@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Motorcycle navigation — prototype 1.5</title>
+<title>Motorcycle navigation — prototype 1.8</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#18212b;background:#f4f6f8}
@@ -61,7 +61,7 @@ button:disabled{opacity:.55;cursor:wait}
 </head>
 <body>
 <div class="wrap">
-<h1>Motorcycle navigation — prototype 1.5</h1>
+<h1>Motorcycle navigation — prototype 1.6</h1>
 <div class="card">
   <div class="grid">
     <div class="field"><label for="start">Start</label><input id="start" type="text" value="Old Fort, NC"></div>
@@ -84,6 +84,7 @@ button:disabled{opacity:.55;cursor:wait}
     </div>
   </div>
   <div id="error"></div><div id="status"></div>
+<div class="departure-note">If a service is slow on a phone, RideWeather will still show the route as soon as routing finishes; weather loads separately.</div>
 </div>
 
 <div class="results">
@@ -140,13 +141,121 @@ function minutes(x){return Math.round(Number(x||0))}
 function mph(distance,timeMinutes){return timeMinutes>0?(distance/(timeMinutes/60)).toFixed(1):'—'}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
+function normalizeAddressQuery(q){
+  let s=String(q||'').trim().replace(/\s+/g,' ');
+  if(/\b\d{5}(?:-\d{4})?\b/.test(s)) return s;
+  // Old Fort addresses in this area are commonly ZIP 28762.
+  if(/\bOld Fort\s*,?\s*(NC|North Carolina)\b/i.test(s)) return s+' 28762';
+  return s;
+}
+
+function addressCandidates(q){
+  const original=String(q||'').trim();
+  const normalized=normalizeAddressQuery(original);
+  const variants=[
+    original,
+    normalized,
+    normalized.replace(/\bParker Padgett Rd\b/i,'Parker Padgett Road'),
+    normalized.replace(/\bRd\b/i,'Road'),
+    normalized.replace(/\bRoad\b/i,'Rd')
+  ];
+  return [...new Set(variants.filter(Boolean))];
+}
+
+async function geocodeNominatim(q){
+  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&dedupe=1&limit=5&countrycodes=us&q='+encodeURIComponent(q);
+  try{
+    const d=await fetchJsonWithTimeout(url,{headers:{'Accept':'application/json'}},10000);
+    if(!Array.isArray(d)||!d.length)return null;
+    const numbered=/^\s*\d+/.test(q);
+    // Prefer an exact house-number match, but don't reject a useful
+    // street-level result simply because OSM omitted housenumber metadata.
+    if(numbered){
+      const exact=d.find(x=>x.address?.house_number && q.match(/^\s*(\d+)/)?.[1]===String(x.address.house_number));
+      if(exact)return {lat:+exact.lat,lon:+exact.lon,name:exact.display_name,source:'OpenStreetMap'};
+    }
+    const usable=d.find(x=>x.lat&&x.lon);
+    if(usable)return {lat:+usable.lat,lon:+usable.lon,name:usable.display_name,source:'OpenStreetMap'};
+  }catch(e){console.warn('Nominatim geocoder failed:',e)}
+  return null;
+}
+
+async function geocodeArcGIS(q){
+  // ArcGIS World Geocoder is useful for rural rooftop/interpolated addresses
+  // and does not require a developer key for this public endpoint.
+  const url='https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&outFields=*&maxLocations=5&singleLine='+encodeURIComponent(q);
+  try{
+    const d=await fetchJsonWithTimeout(url,{headers:{'Accept':'application/json'}},10000);
+    const c=Array.isArray(d?.candidates)?d.candidates:[];
+    const good=c.find(x=>x?.location&&x.score>=70);
+    if(good)return {lat:+good.location.y,lon:+good.location.x,name:good.address||q,source:'ArcGIS'};
+  }catch(e){console.warn('ArcGIS geocoder failed:',e)}
+  return null;
+}
+
+async function geocodePhoton(q){
+  const url='https://photon.komoot.io/api/?limit=5&lang=en&q='+encodeURIComponent(q);
+  try{
+    const d=await fetchJsonWithTimeout(url,{headers:{'Accept':'application/json'}},10000);
+    const features=Array.isArray(d?.features)?d.features:[];
+    if(!features.length)return null;
+    const numbered=/^\s*\d+/.test(q);
+    const pick=numbered
+      ?(features.find(f=>f.properties?.housenumber)||features[0])
+      :features[0];
+    const c=pick?.geometry?.coordinates;
+    if(!Array.isArray(c)||c.length<2)return null;
+    return {lat:+c[1],lon:+c[0],name:formatPhotonName(pick.properties,q),source:'Photon'};
+  }catch(e){console.warn('Photon geocoder failed:',e)}
+  return null;
+}
+
+function formatPhotonName(props,q){
+  const p=props||{};
+  const parts=[];
+  if(p.housenumber&&p.street)parts.push(p.housenumber+' '+p.street);
+  else if(p.name)parts.push(p.name);
+  if(p.city)parts.push(p.city);
+  else if(p.locality)parts.push(p.locality);
+  if(p.state)parts.push(p.state);
+  if(p.postcode)parts.push(p.postcode);
+  return parts.join(', ')||q;
+}
+
+async function geocodeCensus(q){
+  const url='https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address='+encodeURIComponent(q)+'&benchmark=Public_AR_Current&format=json';
+  try{
+    const d=await fetchJsonWithTimeout(url,{headers:{'Accept':'application/json'}},10000);
+    const m=d?.result?.addressMatches?.[0];
+    if(m?.coordinates)return {lat:+m.coordinates.y,lon:+m.coordinates.x,name:m.matchedAddress||q,source:'U.S. Census'};
+  }catch(e){console.warn('Census geocoder failed:',e)}
+  return null;
+}
+
 async function geocode(q){
-  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q='+encodeURIComponent(q);
-  const r=await fetch(url,{headers:{'Accept':'application/json'}});
-  let d; try{d=await r.json()}catch{throw Error('Geocoding returned invalid data (HTTP '+r.status+').')}
-  if(!r.ok) throw Error('Geocoding failed (HTTP '+r.status+').');
-  if(!d.length) throw Error('Could not find "'+q+'". Try a more specific place.');
-  return {lat:+d[0].lat,lon:+d[0].lon,name:d[0].display_name};
+  const original=String(q||'').trim();
+  if(!original)throw Error('Enter a starting point or destination.');
+  const candidates=addressCandidates(original);
+
+  // Try the strongest address geocoders first.
+  for(const candidate of candidates){
+    const hit=await geocodeArcGIS(candidate);
+    if(hit)return hit;
+  }
+  for(const candidate of candidates){
+    const hit=await geocodeCensus(candidate);
+    if(hit)return hit;
+  }
+  for(const candidate of candidates){
+    const hit=await geocodeNominatim(candidate);
+    if(hit)return hit;
+  }
+  for(const candidate of candidates){
+    const hit=await geocodePhoton(candidate);
+    if(hit)return hit;
+  }
+
+  throw Error('Could not find "'+original+'". Try adding the ZIP code or city/state.');
 }
 
 function decodePolyline6(str){
@@ -186,6 +295,20 @@ function normalizeTrip(d){
   return trip;
 }
 
+async function fetchJsonWithTimeout(url,options={},timeoutMs=18000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const r=await fetch(url,{...options,signal:controller.signal});
+    let d;try{d=await r.json()}catch{throw Error('Service returned invalid data (HTTP '+r.status+').')}
+    if(!r.ok)throw Error('Service failed (HTTP '+r.status+'). '+(d?.error||d?.error_message||''));
+    return d;
+  }catch(e){
+    if(e?.name==='AbortError')throw Error('The routing service took too long to respond. Please try again.');
+    throw e;
+  }finally{clearTimeout(timer)}
+}
+
 async function routeRequest(locations,opts){
   const body={
     locations:locations.map(x=>({lat:x.lat,lon:x.lon,type:'break'})),
@@ -200,10 +323,11 @@ async function routeRequest(locations,opts){
     alternates:2,
     directions_options:{units:'miles'}
   };
-  const url='https://valhalla1.openstreetmap.de/route?json='+encodeURIComponent(JSON.stringify(body));
-  const r=await fetch(url,{headers:{'Accept':'application/json'}});
-  let d;try{d=await r.json()}catch{throw Error('Routing returned invalid data (HTTP '+r.status+').')}
-  if(!r.ok)throw Error('Routing failed (HTTP '+r.status+'). '+(d?.error||d?.error_message||''));
+  const d=await fetchJsonWithTimeout('https://valhalla1.openstreetmap.de/route',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Accept':'application/json','X-Client-Id':'rideweather.github.io'},
+    body:JSON.stringify(body)
+  });
   if(d?.error)throw Error('Routing failed: '+d.error);
   const trips=[normalizeTrip(d)];
   for(const a of (d?.alternates||[])){
@@ -265,14 +389,20 @@ async function buildRoute(locations,curviness,gravel,highways){
     {useHighway:highways?0.02:Math.max(0.05,1.0-0.85*c),shortest:false,gravel}
   ];
   const all=[];
-  for(const opts of searches){
-    const trips=await routeRequest(locations,opts);
-    for(const t of trips){
-      const key=(t.legs||[]).map(l=>l.shape||'').join('|');
-      if(key&&!all.some(x=>x.key===key))all.push({trip:t,key});
+  for(let i=0;i<searches.length;i++){
+    try{
+      const trips=await routeRequest(locations,searches[i]);
+      for(const t of trips){
+        const key=(t.legs||[]).map(l=>l.shape||'').join('|');
+        if(key&&!all.some(x=>x.key===key))all.push({trip:t,key});
+      }
+    }catch(e){
+      console.warn('Route candidate '+(i+1)+' failed:',e);
+      // Keep going: one successful Valhalla request is enough to produce a ride.
     }
+    if(all.length>=3)break;
   }
-  if(!all.length)throw Error('No route candidates were returned.');
+  if(!all.length)throw Error('The routing service did not respond. Please try Calculate Ride again.');
 
   const scored=all.map(x=>{
     const s=x.trip.summary||{}, dist=Number(s.length||0), tm=routeTime(x.trip);
@@ -431,9 +561,7 @@ async function loadWeather(shape,routeMinutes,departureDate){
   const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
     '&hourly=temperature_2m,precipitation_probability,precipitation,rain,showers,weather_code,wind_speed_10m,wind_gusts_10m,visibility'+
     '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=16';
-  const r=await fetch(url);
-  if(!r.ok)throw Error('Weather service failed (HTTP '+r.status+').');
-  const data=await r.json();
+  const data=await fetchJsonWithTimeout(url,{headers:{'Accept':'application/json'}},12000);
   const arr=Array.isArray(data)?data:[data];
   if(!arr.length)throw Error('Weather service returned no forecast data.');
   const cards=[];
@@ -606,13 +734,23 @@ $('calc').addEventListener('click',async()=>{
     render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,0);
     $('status').textContent=currentRouteCandidates.length>1
       ? 'Route calculated — alternates are available below the ride summary.'
-      : 'Route calculated — selected the strongest candidate for your curviness setting.';
+      : 'Route calculated — selected the strongest available route.';
+    // The route is usable immediately. Weather loads separately so a slow
+    // forecast service can never make Calculate Ride appear stuck.
     $('weather').innerHTML='<div class="weather-note">Loading weather along route…</div>';
-    await loadWeather(getShape(chosen.trip),routeTime(chosen.trip),departureDate);
+    b.disabled=false;
+    loadWeather(getShape(chosen.trip),routeTime(chosen.trip),departureDate).catch(e=>{
+      console.error(e);
+      $('weather').innerHTML='<div class="weather-note">Weather could not be loaded right now. The route is still ready to use.</div>';
+    });
+    return;
   }catch(e){
     console.error(e);showError(e?.message||String(e));$('status').textContent='Route not calculated.';
-  }finally{b.disabled=false}
+  }finally{
+    if(b.disabled)b.disabled=false;
+  }
 });
+
 </script>
 </body>
 </html>
