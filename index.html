@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Motorcycle navigation — prototype 1.8</title>
+<title>Motorcycle navigation — prototype 3.1</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#18212b;background:#f4f6f8}
@@ -21,7 +21,7 @@ button:disabled{opacity:.55;cursor:wait}
 .metric{font-size:17px;margin:12px 0}.metric b{font-size:25px}.small{font-size:13px;color:#68727d;line-height:1.45}
 #map{height:620px;border-radius:14px;overflow:hidden}
 .departure{display:flex;align-items:end;gap:14px;margin-top:20px}.departure .field{flex:1}.departure-note{font-size:13px;color:#68727d;margin-top:6px}
-.weather{margin-top:18px}.weather h3{margin:0 0 10px;font-size:19px}.weather-note{font-size:12px;color:#68727d;margin-bottom:10px}
+.alerts{margin-top:18px}.alerts h3{margin:0 0 10px;font-size:19px}.alert-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.alert-controls label{font-size:13px;font-weight:700}.alert-controls select{padding:7px 9px;border:1px solid #c8d0d7;border-radius:8px;background:#fff}.alert-list{display:grid;gap:8px}.alert{border:1px solid #ddd;border-left:5px solid #777;border-radius:10px;padding:10px;background:#fff}.alert.accident{border-left-color:#d64545}.alert.police{border-left-color:#315ea8}.alert.other{border-left-color:#b47a00}.alert-head{display:flex;justify-content:space-between;gap:8px;font-weight:800}.alert-distance{font-size:12px;white-space:nowrap}.alert-main{font-size:14px;margin-top:4px}.alert-detail{font-size:12px;color:#59636d;margin-top:3px}.alert-note{font-size:12px;color:#68727d;line-height:1.4;margin-top:8px}.alert-badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800;background:#eee}.alert-badge.accident{background:#ffe2e2;color:#9b1c1c}.alert-badge.police{background:#e6efff;color:#214b8f}.alert-badge.other{background:#fff1c7;color:#765500}.weather{margin-top:18px}.weather h3{margin:0 0 10px;font-size:19px}.weather-note{font-size:12px;color:#68727d;margin-bottom:10px}
 .weather-list{display:grid;gap:8px}.wx{border:1px solid #ddd;border-radius:10px;padding:10px;background:#fff}
 .wx-head{display:flex;justify-content:space-between;gap:8px;font-weight:800}.wx-main{font-size:14px;margin-top:4px}.wx-detail{font-size:12px;color:#59636d;margin-top:3px}
 .badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800;background:#eee}
@@ -57,6 +57,27 @@ button:disabled{opacity:.55;cursor:wait}
 .maneuver .mi{font-weight:800;display:inline-block;width:70px}
 .nav-note{font-size:12px;color:#68727d;line-height:1.45;margin-top:10px}
 @media(max-width:600px){.nav-actions{grid-template-columns:1fr}.nav-next .distance{font-size:26px}}
+
+.radar-panel{position:absolute;top:12px;right:12px;z-index:1000;width:min(360px,calc(100% - 24px));box-sizing:border-box;margin:0;padding:12px 14px;background:rgba(255,255,255,.96);border:1px solid #cfd6dd;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.radar-title{font-weight:800;font-size:18px;margin-bottom:8px}
+.radar-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:7px 0}
+.radar-row button{width:auto;padding:8px 12px;border:1px solid #c8d0d7;border-radius:8px;background:#fff;color:#1f2937;font-size:14px;font-weight:700;cursor:pointer}
+.radar-row button.active{background:#1d79b8;color:#fff;border-color:#1d79b8}.radar-row button:disabled{opacity:.55;color:#374151;background:#f3f4f6;cursor:wait}
+.radar-row input[type=range]{vertical-align:middle}
+.radar-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#56616d}
+.radar-legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;background:#9be7ff}
+.radar-legend span:nth-child(2)::before{background:#63d66d}
+.radar-legend span:nth-child(3)::before{background:#ffd447}
+.radar-legend span:nth-child(4)::before{background:#ff4d4d}
+.radar-note{font-size:11px;color:#68737f;margin-top:7px}
+
+<style>
+.highway-mode{margin:10px 0 14px}
+.highway-mode-title{font-weight:800;margin-bottom:8px}
+.highway-mode label{display:inline-flex;align-items:center;gap:7px;margin-right:18px;font-weight:600}
+.highway-mode input[type=radio]{width:auto!important}
+.highway-mode-note{font-size:14px;color:#68737f;margin-top:7px}
+@media(max-width:700px){.highway-mode label{display:flex;margin:7px 0}}
 </style>
 </head>
 <body>
@@ -73,7 +94,13 @@ button:disabled{opacity:.55;cursor:wait}
       <div class="rangeRow"><input id="curviness" type="range" min="0" max="100" value="80"><span id="pct" class="pct">80%</span></div>
     </div>
     <label class="check"><input id="gravel" type="checkbox" checked> Never allow gravel</label>
-    <label class="check"><input id="highways" type="checkbox" checked> Avoid highways</label>
+    <div class="highway-mode">
+  <div class="highway-mode-title">Highway use</div>
+  <label><input type="radio" name="highwayMode" value="avoid"> Avoid highways</label>
+  <label><input type="radio" name="highwayMode" value="sparing" checked> Use sparingly</label>
+  <label><input type="radio" name="highwayMode" value="normal"> Normal</label>
+  <div id="highwayModeNote" class="highway-mode-note">Highways are strongly discouraged, but may be used when they materially improve the route.</div>
+</div>
     <button id="calc">Calculate Ride</button>
   </div>
   <div class="departure">
@@ -91,6 +118,23 @@ button:disabled{opacity:.55;cursor:wait}
   <div class="summary">
     <h2>Ride</h2>
     <div id="metrics" class="small">Enter locations and calculate a ride.</div><div id="routeChoices"></div>
+    
+<div class="alerts" id="nationwideFeed"><div id="coverageStatus" class="alert-note" style="margin-top:-4px;margin-bottom:10px;font-weight:700">Active without key: North Carolina + Tennessee · Nationwide expansion: optional</div>
+  <h3>🇺🇸 Nationwide traffic coverage</h3>
+  <div class="alert-controls">
+    <label for="road511Key">Road511 API key (optional)</label>
+    <input id="road511Key" type="password" placeholder="Paste key for nationwide coverage"
+      style="flex:1;min-width:180px;padding:8px 10px;border:1px solid #c8d0d7;border-radius:8px">
+    <button id="saveRoad511Key" type="button"
+      style="width:auto!important;min-width:72px;padding:8px 14px;border:1px solid #c8d0d7;border-radius:8px;background:#fff;color:#1f2937;font-size:14px;font-weight:700;cursor:pointer">Save</button>
+  </div>
+  <div class="alert-note">
+    NC and TN state feeds work without a key. A Road511 key adds normalized traffic-event coverage across the U.S. and Canada.
+    The key is stored only in this browser.
+  </div>
+</div>
+
+<div id="alerts" class="alerts"></div>
     <div id="weather" class="weather"></div>
     <div class="nav-card">
       <div class="nav-head"><h3>Turn-by-turn navigation</h3><span id="navState" class="nav-state">Ready</span></div>
@@ -107,7 +151,23 @@ button:disabled{opacity:.55;cursor:wait}
       <div class="nav-note">Navigation uses your device's GPS and browser speech synthesis. Keep the phone mounted and use normal safe riding practices; GPS accuracy can vary in mountains and the browser may restrict background operation.</div>
     </div>
   </div>
-  <div id="map"></div>
+  <div id="map"><div id="radarControls" class="radar-panel">
+  <div class="radar-title">🌧️ Weather Radar</div><div id="radarStatus" class="radar-note">Radar ready — tap Radar OFF to turn it on.</div>
+  <div class="radar-row">
+    <button id="radarToggle" type="button">Radar OFF</button>
+    <button id="radarPlay" type="button" disabled>▶ Play Future</button><button id="radarRefresh" type="button">↻ Refresh</button>
+    <label>Opacity <input id="radarOpacity" type="range" min="0" max="100" value="62"></label>
+  </div>
+  <div class="radar-row">
+    <label>Past  ←  NOW  →  Future<br><input id="radarFrame" type="range" min="0" max="0" value="0" disabled></label>
+    <span id="radarFrameLabel">NOW</span><div id="radarFutureHint" class="radar-note">← recent history &nbsp;&nbsp; | &nbsp;&nbsp; future precipitation →</div>
+  </div>
+  <div class="radar-legend"><span>Light</span><span>Moderate</span><span>Heavy</span><span>Extreme</span></div>
+  <div class="radar-note">Radar data by RainViewer</div>
+</div></div>
+
+
+
 </div>
 </div>
 
@@ -121,7 +181,16 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_M
 }).addTo(map);
 L.control.scale({imperial:true,metric:false}).addTo(map);
 
-let routeLayer=null, routeCasing=null, alternateLayers=[], markers=[], weatherMarkers=[], currentRouteCandidates=[];
+let routeLayer=null, routeCasing=null, alternateLayers=[], markers=[], weatherMarkers=[], alertMarkers=[], currentRouteCandidates=[];
+document.addEventListener('DOMContentLoaded',()=>{
+  const key=$('road511Key');
+  if(key)key.value=getRoad511Key();
+  const save=$('saveRoad511Key');
+  if(save)save.addEventListener('click',()=>{saveRoad511Key();updateCoverageStatus();});
+  updateCoverageStatus();
+});
+
+let currentAlerts=[], alertSpokenIds=new Set();
 let navWatchId=null, navMarker=null, navAccuracy=null, navActive=false, navLastManeuver=-1, navRouteData=null, navLastSpeak=0;
 $('curviness').addEventListener('input',()=>$('pct').textContent=$('curviness').value+'%');
 
@@ -323,6 +392,11 @@ async function routeRequest(locations,opts){
     alternates:2,
     directions_options:{units:'miles'}
   };
+  if(Array.isArray(opts.excludeLocations)&&opts.excludeLocations.length){
+    body.exclude_locations=opts.excludeLocations.map(p=>({
+      lat:Number(p[0]),lon:Number(p[1]),radius:Number(p[2]||0.35)
+    }));
+  }
   const d=await fetchJsonWithTimeout('https://valhalla1.openstreetmap.de/route',{
     method:'POST',
     headers:{'Content-Type':'application/json','Accept':'application/json','X-Client-Id':'rideweather.github.io'},
@@ -378,30 +452,116 @@ function turns(trip){
 }
 function routeTime(trip){return ((trip.summary||{}).time||0)/60}
 
-async function buildRoute(locations,curviness,gravel,highways){
-  const c=curviness/100;
-  const highBase=highways?0.02:1.0;
-  // Run several differently weighted searches. Valhalla also returns alternates,
-  // giving us a small pool of genuinely different motorcycle routes.
-  const searches=[
-    {useHighway:highBase,shortest:false,gravel},
-    {useHighway:highways?0.002:Math.max(0.15,1.0-0.65*c),shortest:c>0.45,gravel},
-    {useHighway:highways?0.02:Math.max(0.05,1.0-0.85*c),shortest:false,gravel}
-  ];
-  const all=[];
-  for(let i=0;i<searches.length;i++){
-    try{
-      const trips=await routeRequest(locations,searches[i]);
-      for(const t of trips){
-        const key=(t.legs||[]).map(l=>l.shape||'').join('|');
-        if(key&&!all.some(x=>x.key===key))all.push({trip:t,key});
+function interstateBlockPoints(trip){
+  const pts=getShape(trip);
+  const out=[];
+  for(const leg of trip.legs||[]){
+    for(const man of leg.maneuvers||[]){
+      const text=JSON.stringify(man||{}).toLowerCase();
+      if(!(/\binterstate(?:\s+highway)?\b|\bi[-\s]?\d{1,3}\b/.test(text)))continue;
+      const si=Number(man.begin_shape_index);
+      const ei=Number(man.end_shape_index);
+      const candidates=[si,Number.isFinite(ei)?ei:si];
+      for(const j of candidates){
+        if(Number.isFinite(j)&&pts[j])out.push([pts[j][0],pts[j][1],0.35]);
       }
-    }catch(e){
-      console.warn('Route candidate '+(i+1)+' failed:',e);
-      // Keep going: one successful Valhalla request is enough to produce a ride.
+    }
+  }
+  // If maneuver metadata did not expose shape indices, use a few evenly spaced
+  // points from the route as a secondary exclusion strategy.
+  if(!out.length && tripUsesInterstate(trip)){
+    for(let k=1;k<=3;k++){
+      const j=Math.floor((pts.length-1)*(k/4));
+      if(pts[j])out.push([pts[j][0],pts[j][1],0.35]);
+    }
+  }
+  const seen=new Set(), unique=[];
+  for(const p of out){
+    const key=p[0].toFixed(4)+','+p[1].toFixed(4);
+    if(!seen.has(key)){seen.add(key);unique.push(p);}
+  }
+  return unique.slice(0,5);
+}
+
+function tripUsesInterstate(trip){
+  const text=JSON.stringify(trip||{}).toLowerCase();
+  // Valhalla maneuver text commonly exposes interstate names as "I 40", "I-40",
+  // "Interstate 40", or "Interstate Highway". We deliberately do not reject US/NC/SC/TN
+  // numbered primary roads here; the user's complaint is specifically about interstates.
+  return /\binterstate(?:\s+highway)?\b|\bi[-\s]?\d{1,3}\b/.test(text);
+}
+
+async function buildRoute(locations,curviness,gravel,highways){
+  const highwayModeValue = typeof highways==='string' ? highways : (highways ? 'avoid' : 'normal');
+  const highwayUse = highwayModeValue==='avoid' ? 0 : (highwayModeValue==='sparing' ? 0.12 : 1);
+  const c=curviness/100;
+
+  // In AVOID mode, don't just ask Valhalla to prefer backroads. If it returns
+  // an Interstate, identify the offending segment and reroute around it.
+  const searches = highwayModeValue==='avoid' ? [
+    {useHighway:0,shortest:false,gravel,excludeLocations:[]},
+    {useHighway:0,shortest:true,gravel,excludeLocations:[]},
+    {useHighway:0,shortest:false,gravel,excludeLocations:[]},
+    {useHighway:0,shortest:true,gravel,excludeLocations:[]}
+  ] : highwayModeValue==='sparing' ? [
+    {useHighway:0.12,shortest:false,gravel},
+    {useHighway:0.08,shortest:false,gravel},
+    {useHighway:0.18,shortest:c>0.45,gravel}
+  ] : [
+    {useHighway:1,shortest:false,gravel},
+    {useHighway:Math.max(0.2,1.0-0.65*c),shortest:c>0.45,gravel},
+    {useHighway:Math.max(0.1,1.0-0.85*c),shortest:false,gravel}
+  ];
+
+  const all=[];
+  const rejectedHighways=[];
+  const seenKeys=new Set();
+  const addTrip=(t)=>{
+    const key=(t.legs||[]).map(l=>l.shape||'').join('|');
+    if(!key||seenKeys.has(key))return false;
+    if(highwayModeValue==='avoid' && tripUsesInterstate(t)){
+      rejectedHighways.push(t); return false;
+    }
+    seenKeys.add(key); all.push({trip:t,key}); return true;
+  };
+
+  for(const base of searches){
+    let opts={...base};
+    // In strict mode, try up to three reroutes, each time excluding the
+    // Interstate segment found in the previous candidate.
+    for(let attempt=0; attempt<(highwayModeValue==='avoid'?3:1); attempt++){
+      try{
+        const trips=await routeRequest(locations,opts);
+        let gotClean=false;
+        for(const t of trips){
+          if(highwayModeValue==='avoid' && tripUsesInterstate(t)){
+            rejectedHighways.push(t);
+            const blocks=interstateBlockPoints(t);
+            if(blocks.length){
+              const prior=Array.isArray(opts.excludeLocations)?opts.excludeLocations:[];
+              opts={...opts,excludeLocations:[...prior,...blocks].slice(-12)};
+            }
+            continue;
+          }
+          if(addTrip(t))gotClean=true;
+        }
+        if(gotClean || all.length>=3)break;
+      }catch(e){
+        console.warn('Route candidate failed:',e);
+        break;
+      }
     }
     if(all.length>=3)break;
   }
+
+  // Only use a highway fallback when the routing service cannot produce a
+  // clean alternative after the exclusion passes. Be explicit about it.
+  if(!all.length && rejectedHighways.length){
+    const fallback=rejectedHighways[rejectedHighways.length-1];
+    fallback.__highwayFallback=true;
+    all.push({trip:fallback,key:(fallback.legs||[]).map(l=>l.shape||'').join('|')});
+  }
+
   if(!all.length)throw Error('The routing service did not respond. Please try Calculate Ride again.');
 
   const scored=all.map(x=>{
@@ -410,13 +570,12 @@ async function buildRoute(locations,curviness,gravel,highways){
     const targetWeight=0.12+0.88*c;
     const baseTime=tm>0?Math.min(1,dist/(tm/60)/70):0;
     const detourPenalty=Math.max(0,dist-110)/40;
-    const score=targetWeight*curve+(1-targetWeight)*(baseTime*10)-detourPenalty;
+    const highwayPenalty=(highwayModeValue==='sparing' && tripUsesInterstate(x.trip))?8:0;
+    const score=targetWeight*curve+(1-targetWeight)*(baseTime*10)-detourPenalty-highwayPenalty;
     return {...x,curve,score,dist,tm};
   });
   scored.sort((a,b)=>b.score-a.score);
 
-  // Keep the best three meaningfully different candidates. This makes
-  // "alternate routes" useful without overwhelming the rider.
   const candidates=[];
   for(const x of scored){
     const tooSimilar=candidates.some(y=>{
@@ -429,13 +588,13 @@ async function buildRoute(locations,curviness,gravel,highways){
   }
   return candidates.length?candidates:[scored[0]];
 }
-
 function clearMapLayers(){
   if(routeLayer)map.removeLayer(routeLayer);
   if(routeCasing)map.removeLayer(routeCasing);
   alternateLayers.forEach(m=>map.removeLayer(m));alternateLayers=[];
   markers.forEach(m=>map.removeLayer(m));markers=[];
   weatherMarkers.forEach(m=>map.removeLayer(m));weatherMarkers=[];
+  alertMarkers.forEach(m=>map.removeLayer(m));alertMarkers=[];
 }
 
 function render(trip,start,dest,curve,candidates=[],selectedIndex=0){
@@ -459,6 +618,9 @@ function render(trip,start,dest,curve,candidates=[],selectedIndex=0){
   map.fitBounds(routeLayer.getBounds(),{padding:[25,25]});
 
   const s=trip.summary||{}, dist=Number(s.length||0), tm=routeTime(trip);
+  const highwayWarning=(trip.__highwayFallback&&(highwayMode()==='avoid'))
+    ? '<div class="alert-note" style="margin-top:8px;color:#9a3412;font-weight:700">⚠️ Strict Interstate avoidance was not possible for this endpoint/road network. The displayed route is the best available fallback.</div>'
+    : '';
   $('metrics').innerHTML=
     '<div class="metric">Distance<br><b>'+miles(dist)+' mi</b></div>'+
     '<div class="metric">Estimated ride time<br><b>'+minutes(tm)+' min</b></div>'+
@@ -466,8 +628,8 @@ function render(trip,start,dest,curve,candidates=[],selectedIndex=0){
     '<div class="metric">Turns<br><b>'+turns(trip)+'</b></div>'+
     '<div class="metric">Departure<br><b>'+new Date($('departure').value).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'</b></div>'+
     '<div class="small">Motorcycle routing. Gravel exclusion: '+($('gravel').checked?'ON':'OFF')+
-    '. Highway avoidance: '+($('highways').checked?'ON':'OFF')+
-    '. Curviness preference: '+Math.round(curve*10)/10+' score.</div>';
+    '. Highway use: '+(highwayMode()==='avoid'?'AVOID':(highwayMode()==='sparing'?'SPARING':'NORMAL'))+
+    '. Curviness preference: '+Math.round(curve*10)/10+' score.</div>'+highwayWarning;
 
   renderRouteChoices(candidates,selectedIndex);
   navRouteData=buildNavigationData(trip,shape);
@@ -503,10 +665,391 @@ async function selectRoute(index,start=lastStart,dest=lastDest){
   lastStart=start;lastDest=dest;
   render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,index);
   $('weather').innerHTML='<div class="weather-note">Loading weather along selected route…</div>';
+  lastAlertShape=getShape(chosen.trip);
+  loadAlerts(lastAlertShape).catch(e=>console.error(e));
   try{
-    await loadWeather(getShape(chosen.trip),routeTime(chosen.trip),lastDeparture);
+    await loadWeather(lastAlertShape,routeTime(chosen.trip),lastDeparture);
   }catch(e){
     $('weather').innerHTML='<div class="weather-note">Weather could not be loaded for this route: '+esc(e.message||e)+'</div>';
+  }
+}
+
+function alertDistanceAhead(shape,point){
+  let bestIdx=0,best=Infinity;
+  for(let i=0;i<shape.length;i++){
+    const d=haversine(shape[i],point);
+    if(d<best){best=d;bestIdx=i;}
+  }
+  let along=0;
+  for(let i=1;i<=bestIdx;i++)along+=haversine(shape[i-1],shape[i]);
+  return {distance:best,along,index:bestIdx};
+}
+function getLatLon(obj){
+  if(!obj||typeof obj!=='object')return null;
+  const pairs=[['lat','lon'],['latitude','longitude'],['y','x'],['Lat','Lon'],['Latitude','Longitude']];
+  for(const [a,b] of pairs){
+    const lat=Number(obj[a]),lon=Number(obj[b]);
+    if(Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180)return [lat,lon];
+  }
+  if(Array.isArray(obj.coordinates)&&obj.coordinates.length>=2){
+    const lon=Number(obj.coordinates[0]),lat=Number(obj.coordinates[1]);
+    if(Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180)return [lat,lon];
+  }
+  if(obj.geometry){const p=getLatLon(obj.geometry);if(p)return p;}
+  if(obj.location){const p=getLatLon(obj.location);if(p)return p;}
+  return null;
+}
+function incidentArray(data){
+  if(Array.isArray(data))return data;
+  for(const k of ['incidents','data','results','items','features']){
+    if(Array.isArray(data?.[k]))return data[k];
+  }
+  return [];
+}
+function incidentText(x){
+  const a=x?.attributes||x||{};
+  const keys=['type','incidentType','incident_type','reason','description','EventType','EventSubType','Reason','Condition','EventName','eventName','name','title','trafficCondition','traffic_condition','notes','roadCondition'];
+  return keys.map(k=>a?.[k]).filter(v=>v!=null).join(' ');
+}
+function classifyIncident(x){
+  const a=x?.attributes||x||{};
+  const s=incidentText(x).toLowerCase();
+  if(/\b(accident|crash|collision|vehicle accident|wreck|overturned|injury crash|multivehicle)\b/.test(s))return 'accident';
+  if(/\b(police|law enforcement|state highway patrol|highway patrol|trooper|sheriff|traffic stop|officer|shp)\b/.test(s))return 'police';
+  if(/\b(hazard|debris|disabled|road closed|closure|fire|flood|lane closed|construction|roadwork)\b/.test(s))return 'other';
+  return null;
+}
+function incidentLabel(kind){return kind==='accident'?'Accident':kind==='police'?'Police / law enforcement':'Road incident';}
+function incidentDescription(x){
+  const a=x?.attributes||x||{};
+  const keys=['EventType','EventSubType','Reason','Condition','Location','description','reason','eventName','EventName','name','title','type','incidentType','incident_type'];
+  for(const k of keys){if(a?.[k])return String(a[k]);}
+  return 'Traffic incident';
+}
+function incidentStreet(x){
+  const a=x?.attributes||x||{};
+  const keys=['Road','roadName','road_name','street','road','route','roadway','CommonName','Location'];
+  for(const k of keys){if(a?.[k])return String(a[k]);}
+  return '';
+}
+function incidentPoint(x){
+  const a=x?.attributes||x||{};
+  if(Number.isFinite(+a.Latitude)&&Number.isFinite(+a.Longitude))return [+a.Latitude,+a.Longitude];
+  const g=x?.geometry;
+  if(g&&Number.isFinite(+g.y)&&Number.isFinite(+g.x))return [+g.y,+g.x];
+  return getLatLon(x);
+}
+function normalizeArcgisIncident(x){
+  const a=x?.attributes||{};
+  return {...x,...a};
+}
+
+const ALERT_PROVIDERS = {
+  NC: {
+    name:'NCDOT TIMS',
+    bbox:[33.75, -84.4, 36.7, -75.3],
+    async fetch(){
+      const base='https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_TIMS_Incidents/FeatureServer/0/query';
+      const params=new URLSearchParams({where:'1=1',outFields:'*',returnGeometry:'true',f:'json',resultRecordCount:'1000'});
+      const data=await fetchJsonWithTimeout(base+'?'+params.toString(),{headers:{'Accept':'application/json'}},12000);
+      if(data?.error)throw Error(data.error.message||'NCDOT ArcGIS query failed');
+      return Array.isArray(data?.features)?data.features.map(normalizeArcgisIncident):[];
+    }
+  },
+  TN: {
+    name:'TDOT SmartWay',
+    bbox:[34.98, -90.3, 36.7, -81.5],
+    async fetch(){
+      const base='https://spatial.tdot.tn.gov/ArcGIS/rest/services/Smartway/Smartway_Events/FeatureServer/0/query';
+      const params=new URLSearchParams({
+        where:'1=1',
+        outFields:'*',
+        returnGeometry:'true',
+        f:'json',
+        resultRecordCount:'2000'
+      });
+      const data=await fetchJsonWithTimeout(base+'?'+params.toString(),{headers:{'Accept':'application/json'}},12000);
+      if(data?.error)throw Error(data.error.message||'TDOT SmartWay query failed');
+      return Array.isArray(data?.features)?data.features.map(normalizeArcgisIncident):[];
+    }
+  }
+};
+
+
+
+function updateCoverageStatus(){
+  const el=$('coverageStatus');
+  if(!el)return;
+  el.textContent=getRoad511Key()
+    ? 'Active: North Carolina + Tennessee + nationwide Road511 coverage'
+    : 'Active without key: North Carolina + Tennessee · Nationwide expansion: optional';
+}
+
+function highwayMode(){
+  const mode=document.querySelector('input[name="highwayMode"]:checked');
+  if(mode) return mode.value;
+  return $('highways')?.checked ? 'avoid' : 'sparing';
+}
+function highwayAvoidanceEnabled(){
+  const mode=document.querySelector('input[name="highwayMode"]:checked');
+  if(mode) return mode.value==='avoid';
+  const legacy=$('highways');
+  return !!legacy?.checked;
+}
+function highwayUseFactor(){
+  const m=highwayMode();
+  return m==='avoid' ? 0 : (m==='sparing' ? 0.12 : 1);
+}
+function routeHasMajorHighway(legs){
+  const text=JSON.stringify(legs||[]).toLowerCase();
+  return /\bmotorway\b|\btrunk\b|\binterstate\b/.test(text);
+}
+function getRoad511Key(){
+  try{return localStorage.getItem('rideweather_road511_key')||'';}catch(e){return '';}
+}
+function saveRoad511Key(){
+  const el=$('road511Key');
+  if(!el)return;
+  const key=el.value.trim();
+  try{
+    if(key)localStorage.setItem('rideweather_road511_key',key);
+    else localStorage.removeItem('rideweather_road511_key');
+  }catch(e){}
+  if(lastAlertShape)loadAlerts(lastAlertShape).catch(console.error);
+}
+function shapeBbox(shape,padMiles=8){
+  const latPad=padMiles/69;
+  const avgLat=shape.reduce((s,p)=>s+p[0],0)/Math.max(1,shape.length);
+  const lonPad=padMiles/(69*Math.max(0.2,Math.cos(avgLat*Math.PI/180)));
+  let minLat=90,maxLat=-90,minLon=180,maxLon=-180;
+  for(const p of shape){
+    minLat=Math.min(minLat,p[0]);maxLat=Math.max(maxLat,p[0]);
+    minLon=Math.min(minLon,p[1]);maxLon=Math.max(maxLon,p[1]);
+  }
+  return [minLat-latPad,minLon-lonPad,maxLat+latPad,maxLon+lonPad];
+}
+function normalizeRoad511Feature(f){
+  const p=f?.properties||{};
+  const c=f?.geometry?.coordinates;
+  const point=(Array.isArray(c)&&c.length>=2)?[Number(c[1]),Number(c[0])]:null;
+  return {
+    geometry:f?.geometry||null,
+    attributes:{
+      ...p,
+      Id:p.id||p.event_id||p.ID,
+      EventType:p.type||p.event_type||p.category,
+      EventSubType:p.subtype||p.event_subtype,
+      description:p.title||p.description||p.name,
+      Road:p.road||p.roadway||p.route,
+      Location:p.location||p.location_description,
+      StartDateTime:p.start_time,
+      EndDateTime:p.end_time,
+      Latitude:point?.[0],
+      Longitude:point?.[1],
+      source:'Road511 nationwide'
+    }
+  };
+}
+const ROAD511_PROVIDER = {
+  name:'Road511 nationwide',
+  async fetch(shape){
+    const key=getRoad511Key();
+    if(!key) return [];
+    const b=shapeBbox(shape,8);
+    const bbox=[b[1],b[0],b[3],b[2]].join(',');
+    const url='https://api.road511.com/api/v1/events/geojson?bbox='+encodeURIComponent(bbox)+'&status=active&limit=500';
+    const data=await fetchJsonWithTimeout(url,{
+      headers:{'Accept':'application/geo+json, application/json','X-API-Key':key}
+    },12000);
+    if(data?.error)throw Error(data.error.message||'Road511 query failed');
+    return Array.isArray(data?.features)?data.features.map(normalizeRoad511Feature):[];
+  }
+};
+function providersForShape(shape){
+  const sample=shape.filter((_,i)=>i%Math.max(1,Math.floor(shape.length/80))===0);
+  const local=Object.entries(ALERT_PROVIDERS).filter(([,p])=>sample.some(pt=>pointInBbox(pt,p.bbox)));
+  return {local, nationwide:!!getRoad511Key()};
+}
+
+function pointInBbox(p,b){
+  return !!p && p[0]>=b[0] && p[0]<=b[2] && p[1]>=b[1] && p[1]<=b[3];
+}
+function normalizeDateValue(v){
+  if(v==null||v==='')return NaN;
+  if(typeof v==='number')return v<100000000000? v*1000:v;
+  const t=Date.parse(v);
+  return Number.isFinite(t)?t:NaN;
+}
+function normalizeProviderIncident(x,source){
+  const a=x?.attributes||x||{};
+  return {
+    ...x,
+    attributes:{
+      ...a,
+      Id:a.Id||a.ID||a.id||a.OBJECTID,
+      StartDateTime:a.StartDateTime||a.Start_Date||a.START_DATE||a.startDate||a.Reported,
+      EndDateTime:a.EndDateTime||a.End_Date||a.END_DATE||a.endDate,
+      EventType:a.EventType||a.EVENT_TYPE||a.CD_EVENT_TYPE||a.eventType,
+      EventSubType:a.EventSubType||a.EVENT_SUBTYPE||a.Subtype||a.eventSubtype,
+      Reason:a.Reason||a.reason,
+      Condition:a.Condition||a.condition,
+      Location:a.Location||a.location,
+      Road:a.Road||a.road||a.CD_ROAD_NAMES||a.RoadwayName,
+      description:a.description||a.Description||a.DESCRIPTION,
+      source
+    }
+  };
+}
+function incidentText(x){
+  const a=x?.attributes||x||{};
+  const keys=['type','incidentType','incident_type','reason','description','EventType','EventSubType','Reason','Condition','EventName','eventName','name','title','trafficCondition','traffic_condition','notes','roadCondition','EVENT_TYPE','EVENT_SUBTYPE','DESCRIPTION','CD_EVENT_TYPE','CD_ROAD_NAMES'];
+  return keys.map(k=>a?.[k]).filter(v=>v!=null).join(' ');
+}
+function classifyIncident(x){
+  const a=x?.attributes||x||{};
+  const s=incidentText(x).toLowerCase();
+  if(/\b(accident|crash|collision|vehicle accident|wreck|overturned|injury crash|multivehicle|motor vehicle crash|traffic crash)\b/.test(s))return 'accident';
+  if(/\b(police|law enforcement|state highway patrol|highway patrol|trooper|sheriff|traffic stop|officer|shp|tnh|tsp)\b/.test(s))return 'police';
+  if(/\b(hazard|debris|disabled|road closed|closure|fire|flood|lane closed|construction|roadwork|incident|stalled vehicle|object on roadway)\b/.test(s))return 'other';
+  return null;
+}
+function incidentLabel(kind){return kind==='accident'?'Accident':kind==='police'?'Police / law enforcement':'Road incident';}
+function incidentDescription(x){
+  const a=x?.attributes||x||{};
+  const keys=['EventType','EventSubType','Reason','Condition','Location','description','reason','eventName','EventName','name','title','type','incidentType','incident_type','DESCRIPTION','CD_EVENT_TYPE'];
+  for(const k of keys){if(a?.[k])return String(a[k]);}
+  return 'Traffic incident';
+}
+function incidentStreet(x){
+  const a=x?.attributes||x||{};
+  const keys=['Road','roadName','road_name','street','road','route','roadway','CommonName','Location','CD_ROAD_NAMES','RoadwayName'];
+  for(const k of keys){if(a?.[k])return String(a[k]);}
+  return '';
+}
+function incidentPoint(x){
+  const a=x?.attributes||x||{};
+  if(Number.isFinite(+a.Latitude)&&Number.isFinite(+a.Longitude))return [+a.Latitude,+a.Longitude];
+  const g=x?.geometry;
+  if(g&&Number.isFinite(+g.y)&&Number.isFinite(+g.x))return [+g.y,+g.x];
+  return getLatLon(x);
+}
+function normalizeArcgisIncident(x){return {...x,...(x?.attributes||{})};}
+async function fetchNCDOTIncidents(){
+  const url='https://eapps.ncdot.gov/services/traffic-prod/v1/incidents?active=true&verbose=true';
+  const data=await fetchJsonWithTimeout(url,{headers:{'Accept':'application/json'}},12000);
+  return incidentArray(data);
+}
+async function loadAlerts(shape){
+  const box=$('alerts');
+  box.innerHTML='<h3>🚨 Traffic & safety alerts</h3><div class="alert-note">Checking live state traffic feeds…</div>';
+  alertMarkers.forEach(m=>map.removeLayer(m));alertMarkers=[];currentAlerts=[];
+  const radius=Number($('alertRadius')?.value||5);
+  const coverage=providersForShape(shape);
+  const providers=coverage.local;
+  let raw=[];
+  let sources=[];
+
+  if(!providers.length && !coverage.nationwide){
+    box.innerHTML='<h3>🚨 Traffic & safety alerts</h3><div class="alert-note">Live incident coverage is not yet available for this route.</div><div class="alert-note">Add a Road511 API key above for nationwide coverage.</div>';
+    return [];
+  }
+
+  for(const [code,p] of providers){
+    try{
+      const rows=await p.fetch();
+      raw.push(...rows.map(x=>normalizeProviderIncident(x,p.name)));
+      sources.push(p.name);
+    }catch(e){
+      console.warn(p.name+' alert feed failed:',e);
+    }
+  }
+  if(coverage.nationwide){
+    try{
+      const rows=await ROAD511_PROVIDER.fetch(shape);
+      raw.push(...rows.map(x=>normalizeProviderIncident(x,ROAD511_PROVIDER.name)));
+      sources.push(ROAD511_PROVIDER.name);
+    }catch(e){
+      console.warn('Road511 nationwide alert feed failed:',e);
+      if(!sources.length) sources.push('Road511 unavailable');
+    }
+  }
+
+  if(!raw.length){
+    box.innerHTML='<h3>🚨 Traffic & safety alerts</h3><div class="alert-controls"><label>Alert radius ahead</label><select id="alertRadius"><option value="1">1 mile</option><option value="2">2 miles</option><option value="5" selected>5 miles</option><option value="10">10 miles</option></select></div><div class="alert-note">No current traffic or safety alerts found within the selected route corridor.</div><div class="alert-note">Checked: '+esc(sources.join(' + ')||'available state feeds')+'.</div>';
+    const sel=$('alertRadius'); if(sel){sel.value=String(radius);sel.addEventListener('change',()=>{lastAlertShape&&loadAlerts(lastAlertShape);});}
+    return [];
+  }
+
+  try{
+    const alerts=[];
+    const now=Date.now();
+    for(const x of raw){
+      const a=x?.attributes||x;
+      const point=incidentPoint(x); if(!point)continue;
+      const kind=classifyIncident(x); if(!kind)continue;
+      const start=normalizeDateValue(a?.StartDateTime);
+      const end=normalizeDateValue(a?.EndDateTime);
+      if(Number.isFinite(start)&&start>now+6*60*60*1000)continue;
+      if(Number.isFinite(end)&&end<now-30*60*1000)continue;
+      const near=alertDistanceAhead(shape,point);
+      if(near.distance>3)continue;
+      if(near.along>radius)continue;
+      const id=String(a?.Id||a?.OBJECTID||a?.id||a?.incidentId||a?.incident_id||kind+'-'+point.join(','));
+      alerts.push({id,kind,point,along:near.along,lateral:near.distance,description:incidentDescription(x),street:incidentStreet(x),source:a?.source||'State traffic feed',raw:x});
+    }
+    const seenIncident=new Set();
+    const deduped=[];
+    for(const a of alerts){
+      const key=(a.street+'|'+a.description).toLowerCase().replace(/\\s+/g,' ').slice(0,180);
+      const bucket=Math.round(a.along*10);
+      const dk=key+'|'+bucket;
+      if(seenIncident.has(dk))continue;
+      seenIncident.add(dk);deduped.push(a);
+    }
+    alerts.length=0; alerts.push(...deduped);
+    alerts.sort((a,b)=>a.along-b.along);
+    const dedup=[];
+    for(const a of alerts){
+      if(!dedup.some(b=>b.kind===a.kind&&Math.abs(b.along-a.along)<0.2&&haversine(b.point,a.point)<0.15))dedup.push(a);
+    }
+    currentAlerts=dedup;
+    renderAlerts(shape,radius,sources);
+    return dedup;
+  }catch(e){
+    console.warn('Incident processing failed:',e);
+    box.innerHTML='<h3>🚨 Traffic & safety alerts</h3><div class="alert-note">Live state traffic alerts could not be processed right now. The route and weather are still available.</div>';
+    return [];
+  }
+}
+function renderAlerts(shape,radius,sources=[]){
+  const box=$('alerts');
+  alertMarkers.forEach(m=>map.removeLayer(m));alertMarkers=[];
+  if(!currentAlerts.length){
+    box.innerHTML='<h3>🚨 Traffic & safety alerts</h3><div class="alert-controls"><label>Alert radius ahead</label><select id="alertRadius"><option value="1">1 mile</option><option value="2">2 miles</option><option value="5" selected>5 miles</option><option value="10">10 miles</option></select></div><div class="alert-note">No current traffic or safety alerts found within the selected route corridor.</div><div class="alert-note">Sources checked: '+esc(sources.join(' + ')||'state feeds')+'.</div>';
+  }else{
+    box.innerHTML='<h3>🚨 Traffic & safety alerts</h3><div class="alert-controls"><label>Alert radius ahead</label><select id="alertRadius"><option value="1">1 mile</option><option value="2">2 miles</option><option value="5" selected>5 miles</option><option value="10">10 miles</option></select></div><div class="alert-list">'+currentAlerts.map(a=>
+      '<div class="alert '+a.kind+'"><div class="alert-head"><span><span class="alert-badge '+a.kind+'">'+incidentLabel(a.kind)+'</span></span><span class="alert-distance">'+a.along.toFixed(1)+' mi ahead</span></div><div class="alert-main">'+esc(a.description)+'</div><div class="alert-detail">'+esc(a.street||'Route corridor')+'</div></div>'
+    ).join('')+'</div><div class="alert-note">Live state sources: '+esc(sources.join(' + ')||'state traffic feeds')+'. Police alerts are only shown when the state feed publishes a corresponding law-enforcement incident; RideWeather does not have direct access to private Waze user reports.</div>';
+  }
+  const sel=$('alertRadius'); if(sel){sel.value=String(radius);sel.addEventListener('change',()=>{lastAlertShape&&loadAlerts(lastAlertShape);});}
+  currentAlerts.forEach(a=>{
+    const icon=a.kind==='accident'?'💥':a.kind==='police'?'🚔':'⚠️';
+    const m=L.marker(a.point).addTo(map).bindPopup('<b>'+icon+' '+incidentLabel(a.kind)+'</b><br>'+esc(a.description)+'<br>'+esc(a.street||'Route incident')+'<br>'+a.along.toFixed(1)+' miles ahead');
+    alertMarkers.push(m);
+  });
+}
+let lastAlertShape=null;
+function updateAlertVoice(position){
+  if(!navActive||!currentAlerts.length)return;
+  const p=[position.coords.latitude,position.coords.longitude];
+  const shape=navRouteData?.shape||lastAlertShape;if(!shape)return;
+  const here=alertDistanceAhead(shape,p);
+  for(const a of currentAlerts){
+    const ahead=a.along-here.along;
+    if(ahead>=0&&ahead<=1.0&&!alertSpokenIds.has(a.id)){
+      alertSpokenIds.add(a.id);
+      speak((a.kind==='police'?'Police alert ahead. ':a.kind==='accident'?'Accident ahead. ':'Road hazard ahead. ')+Math.max(0.1,ahead).toFixed(1)+' miles.');
+    }
   }
 }
 
@@ -690,11 +1233,13 @@ function updateNavigation(position){
   if(navAccuracy)navAccuracy.setLatLng(p).setRadius(position.coords.accuracy||30);
   setNavState('GPS navigation',true);
   if(position.coords.accuracy<80)map.panTo(p,{animate:true,duration:.4});
+  updateAlertVoice(position);
 }
+
 function startNavigation(){
   if(!navRouteData){showError('Calculate a ride before starting navigation.');return;}
   if(!navigator.geolocation){showError('This browser does not provide GPS location.');return;}
-  navActive=true;navLastManeuver=-1;navLastSpeak=0;
+  navActive=true;navLastManeuver=-1;navLastSpeak=0;alertSpokenIds=new Set();
   setNavState('Getting GPS…',true);
   $('startNav').disabled=true;$('stopNav').disabled=false;
   if(!navMarker){
@@ -728,7 +1273,7 @@ $('calc').addEventListener('click',async()=>{
     if(Number.isNaN(departureDate.getTime()))throw Error('Choose a valid ride start time.');
     const [start,dest]=await Promise.all([geocode(st),geocode(de)]);
     $('status').textContent='Calculating motorcycle route candidates…';
-    currentRouteCandidates=await buildRoute([start,dest],+$('curviness').value,$('gravel').checked,$('highways').checked);
+    currentRouteCandidates=await buildRoute([start,dest],+$('curviness').value,$('gravel').checked,highwayMode());
     lastStart=start;lastDest=dest;lastDeparture=departureDate;
     const chosen=currentRouteCandidates[0];
     render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,0);
@@ -738,8 +1283,10 @@ $('calc').addEventListener('click',async()=>{
     // The route is usable immediately. Weather loads separately so a slow
     // forecast service can never make Calculate Ride appear stuck.
     $('weather').innerHTML='<div class="weather-note">Loading weather along route…</div>';
+    lastAlertShape=getShape(chosen.trip);
     b.disabled=false;
-    loadWeather(getShape(chosen.trip),routeTime(chosen.trip),departureDate).catch(e=>{
+    loadAlerts(lastAlertShape).catch(e=>console.error(e));
+    loadWeather(lastAlertShape,routeTime(chosen.trip),departureDate).catch(e=>{
       console.error(e);
       $('weather').innerHTML='<div class="weather-note">Weather could not be loaded right now. The route is still ready to use.</div>';
     });
@@ -751,6 +1298,154 @@ $('calc').addEventListener('click',async()=>{
   }
 });
 
+
+/* RAINVIEWER_RADAR */
+let radarFrames=[], radarLayer=null, radarTimer=null, radarVisible=false;
+
+async function loadRadarTimeline(){
+  const frame=$('radarFrame'), play=$('radarPlay'), label=$('radarFrameLabel'), status=$('radarStatus');
+  try{
+    if(status)status.textContent='Loading live radar and short-term forecast…';
+    const data=await fetchJsonWithTimeout(
+      'https://api.rainviewer.com/public/weather-maps.json',
+      {headers:{'Accept':'application/json'}},10000
+    );
+    const past=Array.isArray(data?.radar?.past)?data.radar.past:[];
+    const nowcast=Array.isArray(data?.radar?.nowcast)?data.radar.nowcast:[];
+    const now=Math.floor(Date.now()/1000);
+
+    // Keep a small amount of history for road-condition context, but make NOW the
+    // center of the control and FUTURE the primary direction.
+    const recentPast=past.slice(-3);
+    const futureFrames=nowcast.filter(f=>Number(f.time||0)>=now);
+    const latestPast=past.length?past[past.length-1]:null;
+
+    radarFrames=[];
+    recentPast.forEach(f=>radarFrames.push({...f,_kind:'past'}));
+    if(latestPast && !radarFrames.some(f=>Number(f.time)===Number(latestPast.time))){
+      radarFrames.push({...latestPast,_kind:'now'});
+    }else if(radarFrames.length){
+      radarFrames[radarFrames.length-1]._kind='now';
+    }
+    futureFrames.forEach(f=>radarFrames.push({...f,_kind:'future'}));
+
+    if(!radarFrames.length)throw Error('No radar frames available');
+
+    frame.max=String(radarFrames.length-1);
+    frame.value=String(Math.max(0, radarFrames.findIndex(f=>f._kind==='now')));
+    frame.disabled=false; play.disabled=false;
+
+    setRadarFrame(frame.value);
+    updateRadarFrameLabel(frame.value);
+    if(status)status.textContent='Live radar loaded — future precipitation forecast is to the right.';
+  }catch(e){
+    console.warn('Radar unavailable:',e);
+    label.textContent='Radar unavailable';
+    if(status)status.textContent='Radar could not be loaded right now.';
+    play.disabled=true;
+  }
+}
+
+function updateRadarFrameLabel(i){
+  const label=$('radarFrameLabel');
+  const f=radarFrames[Number(i)||0];
+  if(!label||!f)return;
+  const t=Number(f.time||0)*1000;
+  const when=t?new Date(t):null;
+  const clock=when?when.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
+  label.textContent=f._kind==='future' ? 'Future '+clock : (f._kind==='past' ? 'Past '+clock : 'NOW '+clock);
+}
+
+function radarTileUrl(frame){
+  const host=frame?.host || window.RAINVIEWER_HOST || 'https://tilecache.rainviewer.com';
+  const path=frame?.path;
+  if(!path)return null;
+  // Leaflet XYZ tiles. RainViewer max zoom for the public map API is 7.
+  return host+path+'/512/{z}/{x}/{y}/2/1_1.png';
+}
+
+function setRadarFrame(i){
+  if(!radarFrames.length || !window.map)return;
+  const frame=radarFrames[Math.max(0,Math.min(radarFrames.length-1,Number(i)||0))];
+  const url=radarTileUrl(frame);
+  if(!url)return;
+  if(radarLayer)map.removeLayer(radarLayer);
+  radarLayer=L.tileLayer(url,{
+    opacity:(Number($('radarOpacity')?.value||62)/100),
+    minZoom:0,maxNativeZoom:7,maxZoom:19,
+    tileSize:512,zoomOffset:-1,
+    attribution:'Weather data by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'
+  });
+  if(radarVisible)radarLayer.addTo(map);
+  try{
+    if(routeCasing?.bringToFront)routeCasing.bringToFront();
+    if(routeLayer?.bringToFront)routeLayer.bringToFront();
+    if(alternateLayers?.length)alternateLayers.forEach(l=>l?.bringToFront?.());
+  }catch(e){}
+  updateRadarFrameLabel(i);
+}
+
+function toggleRadar(){
+  radarVisible=!radarVisible;
+  const b=$('radarToggle');
+  if(b){
+    b.textContent=radarVisible?'Radar ON':'Radar OFF';
+    b.classList.toggle('active',radarVisible);
+  }
+  if(radarVisible){
+    if(!radarFrames.length){
+      const label=$('radarFrameLabel'); if(label)label.textContent='Loading radar…';
+      loadRadarTimeline();
+    } else if(radarLayer)radarLayer.addTo(map);
+  }else if(radarLayer){
+    map.removeLayer(radarLayer);
+  }
+}
+
+function toggleRadarPlayback(){
+  const play=$('radarPlay');
+  if(radarTimer){
+    clearInterval(radarTimer);radarTimer=null;
+    if(play)play.textContent='▶ Play';
+    return;
+  }
+  if(!radarFrames.length)return;
+  let i=Number($('radarFrame')?.value||0);
+  if(i>=radarFrames.length-1)i=0;
+  if(play)play.textContent='⏸ Pause';
+  radarTimer=setInterval(()=>{
+    if(i>=radarFrames.length-1){
+      clearInterval(radarTimer);radarTimer=null;
+      if(play)play.textContent='▶ Play';
+      return;
+    }
+    i++;
+    $('radarFrame').value=String(i);
+    setRadarFrame(i);
+  },700);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  $('radarToggle')?.addEventListener('click',toggleRadar);
+  $('radarRefresh')?.addEventListener('click',()=>loadRadarTimeline());
+  $('radarPlay')?.addEventListener('click',toggleRadarPlayback);
+  $('radarFrame')?.addEventListener('input',e=>setRadarFrame(e.target.value));
+  $('radarOpacity')?.addEventListener('input',e=>{
+    if(radarLayer)radarLayer.setOpacity(Number(e.target.value)/100);
+  });
+  loadRadarTimeline();
+});
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('input[name="highwayMode"]').forEach(el=>el.addEventListener('change',()=>{
+    const n=document.getElementById('highwayModeNote');
+    if(n)n.textContent=el.value==='avoid'
+      ? 'Highways are strictly avoided whenever a legal non-highway route is available.'
+      : (el.value==='sparing'
+        ? 'Highways are strongly discouraged, but may be used when they materially improve the route.'
+        : 'Highways are treated normally.');
+  }));
+});
 </script>
 </body>
 </html>
