@@ -4991,5 +4991,77 @@ body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:non
 }
 </style>
 
+<!-- RR-3.2.1 MOBILE FIT -->
+<style id="rocketride-321-mobile-fit">
+@media(max-width:700px){
+  html,body{width:100%!important;max-width:100%!important;overflow:hidden!important}
+  #map{width:100%!important;max-width:100%!important}
+  .app-topbar{left:132px!important;right:8px!important;width:auto!important;overflow:visible!important}
+  .app-actions{width:100%!important;max-width:100%!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .app-actions button{box-sizing:border-box!important}
+  .card{right:8px!important;overflow-x:hidden!important}
+  .card .plan-section,.card .route-field-main,.card .input-action-row{box-sizing:border-box!important}
+}
+</style>
+
+<!-- RR-3.2.2 LOCATION HUD GUARD -->
+<style id="rocketride-322-location-guard">
+body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
+<script id="rocketride-322-location-guard-js">
+(function(){
+  let until=0;
+  document.addEventListener('click',function(e){
+    const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
+    if(b)until=Date.now()+20000;
+  },true);
+  const observer=new MutationObserver(function(){
+    if(Date.now()>until)return;
+    const n=document.getElementById('navOverlay');
+    if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
+    document.body.classList.add('rr-location-only');
+  });
+  observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+  window.addEventListener('pageshow',()=>{until=0;document.body.classList.remove('rr-location-only');document.getElementById('navOverlay')?.classList.remove('rr-location-suppressed','open');},true);
+})();
+</script>
+
+<!-- RR-3.2.3 NAV MOBILE + MENU GUARD -->
+<style id="rocketride-323-nav-mobile">
+@media(max-width:700px){
+  .nav-overlay{left:8px!important;right:8px!important;width:calc(100vw - 16px)!important;max-width:calc(100vw - 16px)!important;padding-left:14px!important;padding-right:14px!important;overflow-x:hidden!important}
+  .nav-overlay .nav-hud-row{flex-wrap:wrap!important;width:100%!important}
+  .nav-overlay .speed-box,.nav-overlay .speed-limit-box{flex:0 0 72px!important;width:72px!important;min-width:72px!important}
+  .nav-overlay .nav-turn,.nav-overlay .turn-instruction,.nav-overlay .nav-instruction,.nav-overlay .instruction{width:100%!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
+  .nav-overlay button{max-width:100%!important;white-space:normal!important}
+  .nav-overlay .nav-direction,.nav-overlay .nav-distance,.nav-overlay .nav-road{max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
+}
+</style>
+<script id="rocketride-323-menu-guard">
+(function(){
+  let menuGuardUntil=0;
+  function closeNav(){
+    const n=document.getElementById('navOverlay');
+    if(n){n.classList.remove('open');n.classList.remove('rr-location-suppressed');}
+  }
+  document.addEventListener('click',function(e){
+    const b=e.target.closest?.('.app-actions button,#menuBtn,[aria-label*="menu" i],[title*="menu" i]');
+    if(!b)return;
+    const t=(b.textContent||'').trim().toLowerCase();
+    if(t.includes('menu') || b.id==='menuBtn' || b.getAttribute('aria-label')?.toLowerCase().includes('menu')){
+      menuGuardUntil=Date.now()+2500;
+      closeNav();
+      requestAnimationFrame(closeNav);
+      setTimeout(closeNav,50);
+      setTimeout(closeNav,250);
+      setTimeout(closeNav,1000);
+      setTimeout(closeNav,2000);
+    }
+  },true);
+  const observer=new MutationObserver(function(){if(Date.now()<menuGuardUntil)closeNav();});
+  observer.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style']});
+})();
+</script>
+
 </body>
 </html>
