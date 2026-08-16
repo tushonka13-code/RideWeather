@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Motorcycle navigation — prototype 3.1</title>
+<title>RocketRide — Motorcycle Ride Planner</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#18212b;background:#f4f6f8}
@@ -1238,6 +1238,291 @@ body.rr-location-only #navOverlay,
   pointer-events:none!important;
 }
 </style>
+
+<style id="rocketride-79-mobile-fix">
+/* RocketRide 7.9 — iPhone/mobile layout and interaction fixes */
+html,body{
+  width:100%;
+  max-width:100%;
+  overflow:hidden!important;
+  overscroll-behavior:none;
+}
+body{touch-action:pan-x pan-y}
+#map{touch-action:pan-x pan-y!important}
+
+/* Compact floating header: logo at left, controls at right */
+.app-topbar{
+  position:fixed!important;
+  left:136px!important;
+  right:8px!important;
+  top:calc(8px + env(safe-area-inset-top))!important;
+  height:54px!important;
+  z-index:9000!important;
+  display:block!important;
+  overflow:visible!important;
+  pointer-events:none!important;
+}
+.app-actions{
+  width:100%!important;
+  height:54px!important;
+  display:grid!important;
+  grid-template-columns:minmax(62px,.78fr) minmax(96px,1.25fr) minmax(66px,.82fr)!important;
+  gap:5px!important;
+  flex-wrap:nowrap!important;
+  pointer-events:auto!important;
+}
+.app-actions button{
+  width:100%!important;
+  min-width:0!important;
+  min-height:48px!important;
+  height:48px!important;
+  padding:7px 5px!important;
+  margin:0!important;
+  border-radius:14px!important;
+  font-size:12px!important;
+  line-height:1.05!important;
+  white-space:nowrap!important;
+  box-shadow:0 3px 12px rgba(0,0,0,.14)!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+}
+.app-actions #locateBtn{font-size:12px!important}
+.map-brand{
+  position:fixed!important;
+  left:8px!important;
+  top:calc(9px + env(safe-area-inset-top))!important;
+  width:120px!important;
+  height:48px!important;
+  z-index:8800!important;
+  display:block!important;
+}
+.map-brand img{
+  display:block!important;
+  width:120px!important;
+  max-width:120px!important;
+  height:auto!important;
+  max-height:48px!important;
+  object-fit:contain!important;
+}
+#map .leaflet-control-zoom{
+  margin-top:70px!important;
+  margin-left:8px!important;
+}
+.map-bottom-status{
+  left:8px!important;
+  right:8px!important;
+  bottom:calc(8px + env(safe-area-inset-bottom))!important;
+  transform:none!important;
+  width:auto!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+  padding:8px 10px!important;
+  text-align:center!important;
+  font-size:13px!important;
+  white-space:normal!important;
+  z-index:7000!important;
+}
+
+/* Full-width mobile sheets */
+#card,
+#summary{
+  position:fixed!important;
+  left:0!important;
+  right:0!important;
+  width:100vw!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  border-radius:20px 20px 0 0!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
+}
+#card{
+  top:72px!important;
+  bottom:0!important;
+  max-height:none!important;
+  padding:0!important;
+  z-index:8000!important;
+}
+#summary{
+  top:72px!important;
+  bottom:0!important;
+  max-height:none!important;
+  padding:0 14px calc(24px + env(safe-area-inset-bottom))!important;
+  z-index:8500!important;
+  overflow-y:auto!important;
+}
+#card.open,#summary.open{display:block!important}
+#card>*{max-width:100%!important;box-sizing:border-box!important}
+#card .plan-header{
+  position:sticky!important;
+  top:0!important;
+  z-index:3!important;
+  padding:16px 16px 12px!important;
+  background:rgba(255,255,255,.98)!important;
+  border-radius:20px 20px 0 0!important;
+}
+#card .plan-header h2{font-size:30px!important;line-height:1.02!important;margin:4px 0 8px!important}
+#card .plan-subtitle{font-size:15px!important;line-height:1.35!important}
+#card .panel-close{
+  width:48px!important;
+  height:48px!important;
+  min-width:48px!important;
+  padding:0!important;
+  font-size:24px!important;
+  border-radius:12px!important;
+}
+#card .plan-section{padding:14px 16px!important}
+#card .route-order-row{
+  grid-template-columns:28px 20px minmax(0,1fr)!important;
+  column-gap:7px!important;
+  min-width:0!important;
+  width:100%!important;
+}
+#card .route-field-main{min-width:0!important;width:100%!important}
+#card .route-field-main .field,
+#card .route-field-main input{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+#card .route-field-main input{font-size:17px!important}
+#card .route-row-actions{
+  display:flex!important;
+  width:100%!important;
+  min-width:0!important;
+  gap:6px!important;
+}
+#card .route-row-actions{
+  flex-wrap:wrap!important;
+}
+#card .route-row-actions button{
+  width:auto!important;
+  min-width:0!important;
+  flex:1 1 0!important;
+  padding:7px 6px!important;
+  font-size:12px!important;
+}
+#card .highway-options{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:6px!important;
+}
+#card .highway-options label{width:100%!important}
+#card .preference-card,
+#card .departure,
+#card .stops-section{max-width:100%!important}
+#card .plan-footer{
+  position:sticky!important;
+  bottom:0!important;
+  z-index:3!important;
+  background:rgba(255,255,255,.98)!important;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom))!important;
+}
+
+/* Ride info / Alerts / Weather sheet */
+.summary-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  margin:0 -14px 12px!important;
+  padding:14px 14px 10px!important;
+  background:rgba(255,255,255,.98)!important;
+  border-radius:20px 20px 0 0!important;
+}
+.summary-head h2{margin:0!important;font-size:26px!important}
+.summary-close{
+  flex:0 0 46px!important;
+  width:46px!important;
+  min-width:46px!important;
+  height:46px!important;
+  padding:0!important;
+  font-size:22px!important;
+}
+#summary .alerts,#summary .weather,#summary .nav-card{max-width:100%!important}
+#summary input,#summary select,#summary button{max-width:100%!important;box-sizing:border-box!important}
+
+/* Alternate route sheet */
+.route-quick-panel{
+  position:fixed!important;
+  left:8px!important;
+  right:8px!important;
+  top:auto!important;
+  bottom:calc(8px + env(safe-area-inset-bottom))!important;
+  width:auto!important;
+  max-width:none!important;
+  max-height:58vh!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  padding:14px!important;
+  border-radius:20px!important;
+  z-index:9500!important;
+  box-sizing:border-box!important;
+}
+.route-quick-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:2!important;
+  padding-bottom:10px!important;
+  background:rgba(255,255,255,.97)!important;
+}
+.route-quick-close{
+  width:48px!important;
+  min-width:48px!important;
+  height:48px!important;
+  padding:0!important;
+  font-size:22px!important;
+}
+.route-quick-panel .route-option{
+  min-height:76px!important;
+  margin:6px 0!important;
+  padding:12px!important;
+  font-size:15px!important;
+  line-height:1.25!important;
+}
+.route-quick-panel .route-tag{font-size:13px!important}
+.route-quick-panel .route-meta{display:block!important;margin-top:5px!important;font-size:13px!important}
+
+/* Radar sheet */
+#radarControls{
+  position:fixed!important;
+  left:8px!important;
+  right:8px!important;
+  top:auto!important;
+  bottom:calc(8px + env(safe-area-inset-bottom))!important;
+  width:auto!important;
+  max-height:60vh!important;
+  overflow-y:auto!important;
+  z-index:9600!important;
+  border-radius:20px!important;
+  box-sizing:border-box!important;
+  padding:14px!important;
+}
+#radarControls .panel-head{position:sticky!important;top:0!important;background:rgba(255,255,255,.98)!important;z-index:2!important;padding-bottom:8px!important}
+#radarClose{width:48px!important;min-width:48px!important;height:48px!important;padding:0!important;font-size:22px!important}
+
+/* Menu above everything */
+.main-menu-panel{z-index:10000!important}
+
+/* Keep navigation HUD out of location-only mode and below menus/sheets */
+#navOverlay{z-index:11000!important}
+body.rr-location-only #navOverlay,
+#navOverlay.rr-location-suppressed{display:none!important;pointer-events:none!important}
+
+/* Prevent horizontal spill from any legacy desktop component */
+#card *,.summary *,.route-quick-panel *,#radarControls *{max-width:100%}
+</style>
+
+<style id="rocketride-79-map-pick">
+body.rr-map-picking #map{cursor:crosshair!important}
+body.rr-map-picking .app-topbar{opacity:.65!important}
+body.rr-map-picking .map-bottom-status{z-index:12000!important}
+</style>
 </head>
 <body>
 <div class="app-topbar">
@@ -1323,6 +1608,7 @@ body.rr-location-only #navOverlay,
       <div class="field"><input id="start" type="text" value="Old Fort, NC" placeholder="Starting location"></div>
       <div class="route-row-actions">
         <button id="useCurrentStart" type="button" class="location-btn">📍 Current</button>
+        <button id="pickStartMap" type="button" class="save-btn">Pick on map</button>
         <button id="saveStart" type="button" class="save-btn">Save</button>
       </div>
     </div>
@@ -1335,6 +1621,7 @@ body.rr-location-only #navOverlay,
       <label for="dest">Destination</label>
       <div class="field"><input id="dest" type="text" value="Mountain City, TN" placeholder="Where are you going?"></div>
       <div class="route-row-actions">
+        <button id="pickDestMap" type="button" class="save-btn">Pick on map</button>
         <button id="saveDest" type="button" class="save-btn">Save</button>
       </div>
     </div>
@@ -1405,7 +1692,7 @@ body.rr-location-only #navOverlay,
 
 <div class="results">
   <div class="summary" id="summary">
-    <h2>Ride</h2>
+    <div class="summary-head"><h2>Ride</h2><button id="summaryClose" class="panel-close summary-close" type="button" aria-label="Close ride information">✕</button></div>
     <div id="metrics" class="small">Enter locations and calculate a ride.</div><div id="routeChoices"></div>
     
 <div class="alerts" id="nationwideFeed"><div id="coverageStatus" class="alert-note" style="margin-top:-4px;margin-bottom:10px;font-weight:700">Active without key: North Carolina + Tennessee · Nationwide expansion: optional</div>
@@ -4391,12 +4678,14 @@ border-radius:12px;padding:13px;font-size:14px;line-height:1.45;max-height:220px
 })();
 </script>
 
+<script id="rocketride-location-capture-js">
 document.addEventListener('click',function(e){
   const b=e.target.closest?.('#locateBtn,#useCurrentStart');
   if(!b)return;
   window.rocketRideEnterLocationOnly?.();
   document.getElementById('navOverlay')?.classList.remove('open');
 },true);
+</script>
 
 <script id="rocketride-location-hard-guard-js">
 (function(){
@@ -4436,7 +4725,107 @@ document.addEventListener('click',function(e){
   else install();
 })();
 </script>
-</body>
-</html
 
-}
+<script id="rocketride-79-mobile-behavior">
+(function(){
+  function closeSummary(){
+    const s=document.getElementById('summary');
+    if(s)s.classList.remove('open');
+  }
+  document.addEventListener('click',function(e){
+    const close=e.target.closest?.('#summaryClose');
+    if(close){
+      e.preventDefault();
+      e.stopPropagation();
+      closeSummary();
+      return;
+    }
+  },true);
+
+  // Location buttons are never allowed to open the navigation HUD.
+  document.addEventListener('click',function(e){
+    const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
+    if(!b)return;
+    window.rocketRideLocationOnlyMode=true;
+    window.rocketRideLocationAccessActive=true;
+    const n=document.getElementById('navOverlay');
+    n?.classList.remove('open');
+    document.body.classList.add('rr-location-only');
+    n?.classList.add('rr-location-suppressed');
+  },true);
+
+  // If another legacy handler tries to open the HUD while location-only is active,
+  // immediately close it.
+  const obs=new MutationObserver(function(){
+    if(!window.rocketRideLocationOnlyMode && !window.rocketRideLocationAccessActive)return;
+    const n=document.getElementById('navOverlay');
+    if(n){
+      n.classList.remove('open');
+      n.classList.add('rr-location-suppressed');
+    }
+  });
+  function install(){
+    const n=document.getElementById('navOverlay');
+    if(n)obs.observe(n,{attributes:true,attributeFilter:['class','style']});
+  }
+
+  // Mobile-friendly map picking for start and destination.
+  let pickTarget=null;
+  async function reversePick(lat,lon){
+    try{
+      const u='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&zoom=18&addressdetails=1';
+      const r=await fetch(u,{headers:{'Accept':'application/json'}});
+      if(!r.ok)throw new Error('reverse geocode failed');
+      const d=await r.json();
+      return d.display_name||((d.address?.road||'')+' '+(d.address?.city||d.address?.town||d.address?.village||'')).trim();
+    }catch(_){ return lat.toFixed(5)+', '+lon.toFixed(5); }
+  }
+  function beginMapPick(target){
+    pickTarget=target;
+    document.getElementById('card')?.classList.remove('open');
+    document.body.classList.add('rr-map-picking');
+    setTimeout(()=>setMapStatus(target==='start'?'Tap the map to set the starting point.':'Tap the map to set the destination.'),0);
+  }
+  function finishMapPick(){
+    pickTarget=null;
+    document.body.classList.remove('rr-map-picking');
+  }
+  document.addEventListener('click',function(e){
+    const b=e.target.closest?.('#pickStartMap,#pickDestMap');
+    if(!b)return;
+    e.preventDefault();e.stopPropagation();
+    beginMapPick(b.id==='pickStartMap'?'start':'dest');
+  },true);
+
+  document.addEventListener('DOMContentLoaded',function(){
+    const mapEl=document.getElementById('map');
+    if(typeof map==='undefined' || !mapEl || window.__rrMapPickBound)return;
+    window.__rrMapPickBound=true;
+    map.on('click',async function(e){
+      if(!pickTarget)return;
+      const target=pickTarget;
+      const lat=e.latlng.lat, lon=e.latlng.lng;
+      setMapStatus('Looking up that location…');
+      const name=await reversePick(lat,lon);
+      const c={lat,lon,name,source:'map'};
+      if(target==='start'){
+        currentStartCoords=c;
+        const input=document.getElementById('start');
+        if(input)input.value=name;
+      }else{
+        const input=document.getElementById('dest');
+        if(input)input.value=name;
+      }
+      finishMapPick();
+      document.getElementById('card')?.classList.add('open');
+      setMapStatus((target==='start'?'Start':'Destination')+' set from the map.');
+    });
+  },{once:true});
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
+  else install();
+})();
+</script>
+
+</body>
+</html>
