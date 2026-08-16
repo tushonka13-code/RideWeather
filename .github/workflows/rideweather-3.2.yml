@@ -22,76 +22,104 @@ jobs:
               s=s.replace(old,'src="rocketride-logo.svg"',1)
           marker='<!-- RR-3.2 UI PATCH -->'
           if marker not in s:
-              patch=r'''
-          <!-- RR-3.2 UI PATCH -->
+              patch=r'''<!-- RR-3.2 UI PATCH -->
           <style id="rocketride-32-final-ui">
-          /* Keep the map clean and make the mobile controls deliberate rather than crowded. */
           @media(max-width:700px){
             .app-topbar{left:132px!important;right:8px!important;top:calc(8px + env(safe-area-inset-top))!important;height:50px!important}
-            .app-actions{height:50px!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)!important;gap:6px!important}
-            .app-actions button{min-height:46px!important;height:46px!important;border-radius:13px!important;font-size:12px!important;padding:7px 4px!important}
+            .app-actions{height:50px!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+            .app-actions button{min-width:0!important;width:100%!important;min-height:46px!important;height:46px!important;border-radius:13px!important;font-size:12px!important;padding:7px 3px!important;overflow:hidden!important;text-overflow:clip!important;white-space:nowrap!important}
             .map-brand{left:8px!important;top:calc(8px + env(safe-area-inset-top))!important;width:116px!important;height:46px!important}
             .map-brand img{width:116px!important;max-width:116px!important;max-height:46px!important}
+            .card{left:8px!important;width:calc(100vw - 16px)!important;max-width:none!important;box-sizing:border-box!important}
+            .card .plan-section{padding-left:14px!important;padding-right:14px!important;box-sizing:border-box!important;overflow:hidden!important}
+            .card .input-action-row{min-width:0!important;max-width:100%!important}
+            .card .input-action-row input{min-width:0!important;max-width:100%!important}
+            .card .input-action-row button{min-width:0!important;width:auto!important;max-width:100%!important;padding-left:9px!important;padding-right:9px!important;font-size:12px!important}
+            .card .route-field-main{min-width:0!important;max-width:100%!important}
+            .card .route-field-main .input-action-row{grid-template-columns:minmax(0,1fr) auto!important}
+            .card .route-field-main .location-btn{min-width:74px!important}
+            .card .route-field-main .save-btn{min-width:58px!important}
+            .card .add-stop-btn{max-width:calc(100% - 39px)!important;box-sizing:border-box!important}
           }
           </style>
           <script id="rocketride-32-location-fix">
           (function(){
             const byId=id=>document.getElementById(id);
+            let locationFixActive=false;
             function suppressNav(){
-              const n=byId('navOverlay');
+              locationFixActive=true;
               window.rocketRideLocationOnlyMode=true;
               window.rocketRideLocationAccessActive=true;
               document.body.classList.add('rr-location-only');
+              const n=byId('navOverlay');
               if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
             }
             function releaseNav(){
-              const n=byId('navOverlay');
+              locationFixActive=false;
               window.rocketRideLocationOnlyMode=false;
               window.rocketRideLocationAccessActive=false;
               document.body.classList.remove('rr-location-only');
-              n?.classList.remove('rr-location-suppressed');
-              n?.classList.remove('open');
+              const n=byId('navOverlay');
+              if(n){n.classList.remove('rr-location-suppressed');n.classList.remove('open');}
             }
             window.rocketRideEnterLocationOnly=suppressNav;
             window.rocketRideExitLocationOnly=releaseNav;
-            window.locateUser=function(setStart){
-              suppressNav();
-              if(!navigator.geolocation){
-                releaseNav();
-                if(typeof setMapStatus==='function')setMapStatus('Location is not available in this browser.');
-                return;
-              }
-              if(typeof setMapStatus==='function')setMapStatus('Getting your current location…');
-              navigator.geolocation.getCurrentPosition(function(pos){
-                const c={lat:pos.coords.latitude,lon:pos.coords.longitude,name:'Current location',source:'GPS'};
-                currentLocationCoords=c;
-                map.setView([c.lat,c.lon],15,{animate:true});
-                if(!navMarker)navMarker=L.circleMarker([c.lat,c.lon],{radius:8,weight:3,fillOpacity:.95}).addTo(map).bindTooltip('You',{permanent:false});
-                else navMarker.setLatLng([c.lat,c.lon]);
-                if(!navAccuracy)navAccuracy=L.circle([c.lat,c.lon],{radius:pos.coords.accuracy||30,weight:1,fillOpacity:.08}).addTo(map);
-                else navAccuracy.setLatLng([c.lat,c.lon]).setRadius(pos.coords.accuracy||30);
-                if(setStart){
-                  currentStartCoords=c;
-                  byId('start').value='Current location';
-                  byId('card').classList.add('open');
-                }
-                releaseNav();
-                if(typeof setMapStatus==='function')setMapStatus(setStart?'Current location set as start.':'Showing your current location.');
-              },function(err){
-                releaseNav();
-                if(typeof setMapStatus==='function')setMapStatus('Could not get your location: '+(err.message||'permission denied'));
-              },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
-            };
-            document.addEventListener('visibilitychange',function(){
-              if(document.visibilityState==='visible' && window.rocketRideLocationAccessActive){
-                const n=byId('navOverlay');
-                n?.classList.remove('open');
-              }
+            window.rocketRideLocationFixActive=()=>locationFixActive;
+            document.addEventListener('click',e=>{
+              const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
+              if(b)suppressNav();
             },true);
+            const obs=new MutationObserver(()=>{
+              if(!locationFixActive)return;
+              const n=byId('navOverlay');
+              if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
+            });
+            obs.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style']});
           })();
           </script>
           '''
               s=s.replace('</body>',patch+'\n</body>')
+          marker2='/* RR-3.2.1 MOBILE FIT */'
+          if marker2 not in s:
+              patch2=r'''<!-- RR-3.2.1 MOBILE FIT -->
+          <style id="rocketride-321-mobile-fit">
+          @media(max-width:700px){
+            html,body{width:100%!important;max-width:100%!important;overflow:hidden!important}
+            #map{width:100%!important;max-width:100%!important}
+            .app-topbar{left:132px!important;right:8px!important;width:auto!important;overflow:visible!important}
+            .app-actions{width:100%!important;max-width:100%!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
+            .app-actions button{box-sizing:border-box!important}
+            .card{right:8px!important;overflow-x:hidden!important}
+            .card .plan-section,.card .route-field-main,.card .input-action-row{box-sizing:border-box!important}
+          }
+          </style>
+          '''
+              s=s.replace('</body>',patch2+'\n</body>')
+          marker3='/* RR-3.2.2 LOCATION HUD GUARD */'
+          if marker3 not in s:
+              patch3=r'''<!-- RR-3.2.2 LOCATION HUD GUARD -->
+          <style id="rocketride-322-location-guard">
+          body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:none!important;visibility:hidden!important;pointer-events:none!important}
+          </style>
+          <script id="rocketride-322-location-guard-js">
+          (function(){
+            let until=0;
+            document.addEventListener('click',function(e){
+              const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
+              if(b)until=Date.now()+20000;
+            },true);
+            const observer=new MutationObserver(function(){
+              if(Date.now()>until)return;
+              const n=document.getElementById('navOverlay');
+              if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
+              document.body.classList.add('rr-location-only');
+            });
+            observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+            window.addEventListener('pageshow',()=>{until=0;document.body.classList.remove('rr-location-only');document.getElementById('navOverlay')?.classList.remove('rr-location-suppressed','open');},true);
+          })();
+          </script>
+          '''
+              s=s.replace('</body>',patch3+'\n</body>')
           p.write_text(s)
           PY
       - name: Commit patched index
@@ -100,5 +128,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Fix mobile location flow and polish UI [rr-3.2-patch]"
+          git commit -m "Fix mobile clipping and location HUD reopen [rr-3.2-patch]"
           git push
