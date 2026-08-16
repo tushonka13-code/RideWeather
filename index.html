@@ -4931,5 +4931,65 @@ body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:non
 })();
 </script>
 
+<!-- RR-3.2.1 MOBILE FIT -->
+<style id="rocketride-321-mobile-fit">
+@media(max-width:700px){
+  html,body{width:100%!important;max-width:100%!important;overflow:hidden!important}
+  #map{width:100%!important;max-width:100%!important}
+  .app-topbar{left:132px!important;right:8px!important;width:auto!important;overflow:visible!important}
+  .app-actions{width:100%!important;max-width:100%!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .app-actions button{box-sizing:border-box!important}
+  .card{right:8px!important;overflow-x:hidden!important}
+  .card .plan-section,.card .route-field-main,.card .input-action-row{box-sizing:border-box!important}
+}
+</style>
+
+<!-- RR-3.2.2 LOCATION HUD GUARD -->
+<style id="rocketride-322-location-guard">
+body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
+<script id="rocketride-322-location-guard-js">
+(function(){
+  let until=0;
+  document.addEventListener('click',function(e){
+    const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
+    if(b)until=Date.now()+20000;
+  },true);
+  const observer=new MutationObserver(function(){
+    if(Date.now()>until)return;
+    const n=document.getElementById('navOverlay');
+    if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
+    document.body.classList.add('rr-location-only');
+  });
+  observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+  window.addEventListener('pageshow',()=>{until=0;document.body.classList.remove('rr-location-only');document.getElementById('navOverlay')?.classList.remove('rr-location-suppressed','open');},true);
+})();
+</script>
+
+<!-- RR-3.2.3 MOBILE LAYOUT -->
+<style id="rocketride-323-mobile-layout">
+@media(max-width:700px){
+  /* The phone viewport is too narrow for the desktop action-row layout. Stack the text field, then use two readable buttons per row. */
+  .card .route-field-main .input-action-row,
+  .card .stop-row .input-action-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:stretch!important}
+  .card .route-field-main .input-action-row .field,
+  .card .stop-row .input-action-row .field{grid-column:1/-1!important}
+  .card .route-field-main .input-action-row button,
+  .card .stop-row .input-action-row button{width:100%!important;min-width:0!important;height:44px!important;padding:5px 6px!important;font-size:11px!important;line-height:1.05!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+  .card .route-field-main .input-action-row button.location-btn,
+  .card .route-field-main .input-action-row button.save-btn{grid-row:auto!important;grid-column:auto!important}
+  .card .route-field-main .input-action-row .field input{height:46px!important;font-size:16px!important}
+  .card .plan-section{overflow:visible!important}
+  /* Force the three map-header actions to fit the actual phone width and never clip their labels. */
+  .app-topbar{left:130px!important;right:7px!important;width:auto!important;height:52px!important;overflow:visible!important;display:block!important}
+  .app-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;width:100%!important;height:52px!important;overflow:visible!important}
+  .app-actions button{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:50px!important;min-width:0!important;min-height:50px!important;padding:3px 1px!important;font-size:10px!important;line-height:1.05!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;word-break:normal!important}
+  .card .section-title{margin-bottom:10px!important}
+  .card .route-field,.card .stop-row{grid-template-columns:26px minmax(0,1fr)!important;gap:8px!important}
+  .card .route-dot{width:22px!important;height:22px!important}
+  .card .add-stop-btn{margin-left:34px!important;width:calc(100% - 34px)!important}
+}
+</style>
+
 </body>
 </html>
