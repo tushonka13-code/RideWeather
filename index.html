@@ -5109,5 +5109,51 @@ body.rr-nav-closed #navOverlay{display:none!important;visibility:hidden!importan
 })();
 </script>
 
+<!-- RR-3.2.5 DEFINITIVE NAV CLOSE -->
+<style id="rr-325-nav-close">
+body.rr-nav-hard-closed #navOverlay{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+</style>
+<script id="rr-325-nav-close-js">
+(function(){
+  let hardClosed=false;
+  let unlockTimer=null;
+  function n(){return document.getElementById('navOverlay')}
+  function hide(){
+    const x=n();
+    if(x){x.classList.remove('open');x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}
+    document.body.classList.add('rr-nav-hard-closed');
+  }
+  function unlock(){
+    hardClosed=false;
+    document.body.classList.remove('rr-nav-hard-closed');
+    const x=n();
+    if(x){x.style.removeProperty('display');x.removeAttribute('aria-hidden')}
+  }
+  document.addEventListener('click',function(e){
+    const x=n();
+    const b=e.target.closest?.('button,[role="button"]');
+    if(!b)return;
+    const text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
+    const inside=x && x.contains(b);
+    const close=inside && (text.includes('close')||text.includes('dismiss')||text.includes('cancel')||text.includes('exit')||text==='x' || text==='×');
+    if(close){
+      hardClosed=true;
+      if(unlockTimer)clearTimeout(unlockTimer);
+      hide();
+      [0,25,100,300,1000,3000,7000].forEach(t=>setTimeout(()=>{if(hardClosed)hide()},t));
+      unlockTimer=setTimeout(unlock,10000);
+      return;
+    }
+    if(hardClosed && !inside){
+      const start=(b.id||'').toLowerCase()+ ' '+text;
+      if(start.includes('start navigation')){unlock();return}
+      hide();
+    }
+  },true);
+  const observer=new MutationObserver(function(){if(hardClosed)hide()});
+  observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+})();
+</script>
+
 </body>
 </html>
