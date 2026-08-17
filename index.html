@@ -1584,6 +1584,70 @@ body.rr-map-picking .map-bottom-status{z-index:12000!important}
 })();
 </script>
 
+<!-- RR-3.6-FLOW-LAYOUT-FIX-2026-08-17 -->
+<style id="rr-3-6-flow-layout">
+/* Mobile controls: use the full viewport and never squeeze/clip labels. */
+@media(max-width:700px){
+  .app-topbar{left:8px!important;right:8px!important;top:8px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;}
+  .app-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;}
+  .app-actions button{width:100%!important;min-width:0!important;max-width:none!important;height:48px!important;min-height:48px!important;padding:7px 3px!important;margin:0!important;box-sizing:border-box!important;border-radius:12px!important;font-size:12px!important;line-height:1.05!important;white-space:normal!important;overflow:hidden!important;text-overflow:clip!important;}
+  .app-actions #locateBtn{font-size:11px!important;}
+  #card.open{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;left:8px!important;right:8px!important;top:64px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;}
+  #card.open .plan-header,#card.open .plan-section,#card.open .departure,#card.open .stops-section{max-width:100%!important;box-sizing:border-box!important;}
+}
+/* Closed navigation HUD is inert; open HUD is interactive. */
+#navOverlay:not(.open){pointer-events:none!important;visibility:hidden!important;}
+#navOverlay.open{pointer-events:auto!important;visibility:visible!important;}
+</style>
+<script id="rr-3-6-flow-js">
+(function(){
+  function openPlan(){
+    var c=document.getElementById('card');
+    if(!c)return;
+    document.getElementById('mainMenuPanel')?.classList.remove('open');
+    document.getElementById('summary')?.classList.remove('open');
+    document.getElementById('savedModal')?.classList.remove('open');
+    document.getElementById('radarControls')?.classList.remove('open');
+    document.getElementById('routeQuickPanel')?.classList.remove('open');
+    document.getElementById('freeRidePanel')?.classList.remove('open');
+    c.classList.add('open');
+    c.setAttribute('aria-hidden','false');
+    window.scrollTo({top:0,behavior:'instant'});
+  }
+  function restoreRouteHud(){
+    var n=document.getElementById('navOverlay');
+    if(n && window.navHudAllowed){
+      n.classList.add('open');
+      n.setAttribute('aria-hidden','false');
+    }
+  }
+  function install(){
+    var b=document.getElementById('planBtn');
+    if(b && !b.__rr36){
+      b.__rr36=true;
+      b.addEventListener('click',function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        openPlan();
+      },true);
+    }
+    var n=document.getElementById('navOverlay');
+    if(n && !n.__rr36obs){
+      n.__rr36obs=true;
+      new MutationObserver(function(){
+        if(n.classList.contains('open')) document.body.classList.remove('rr-user-dismissed-nav');
+      }).observe(n,{attributes:true,attributeFilter:['class']});
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+  window.addEventListener('load',install,{once:true});
+  document.addEventListener('click',function(e){
+    if(e.target.closest?.('#planBtn'))openPlan();
+    if(e.target.closest?.('#calc'))setTimeout(restoreRouteHud,100);
+  },true);
+})();
+</script>
+
 </head>
 <body>
 <div class="app-topbar">
@@ -4890,90 +4954,6 @@ document.addEventListener('click',function(e){
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
-})();
-</script>
-
-<!-- RR-FINAL-NAV-DISMISS-2026-08-17 -->
-<style id="rr-final-nav-dismiss-css">
-body.rr-user-dismissed-nav #navOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
-</style>
-<script id="rr-final-nav-dismiss-js">
-(function(){
-  var dismissed=false;
-  function nav(){return document.getElementById('navOverlay')}
-  function hide(){
-    var n=nav();
-    if(n){n.classList.remove('open');n.setAttribute('aria-hidden','true')}
-    document.body.classList.add('rr-user-dismissed-nav');
-  }
-  function release(){
-    dismissed=false;
-    document.body.classList.remove('rr-user-dismissed-nav');
-    var n=nav();
-    if(n)n.removeAttribute('aria-hidden');
-  }
-  function isCloseButton(b){
-    if(!b)return false;
-    var id=(b.id||'').toLowerCase();
-    var text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
-    return id==='overlayclose' || text==='close' || text==='close navigation' || text==='x' || text==='×';
-  }
-  function isStartButton(b){
-    if(!b)return false;
-    var id=(b.id||'').toLowerCase();
-    var text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
-    return id==='overlaystartnav' || text.indexOf('start navigation')>=0;
-  }
-  function dismiss(){
-    dismissed=true;
-    try{navHudAllowed=false;}catch(e){}
-    hide();
-  }
-  function start(){
-    release();
-    try{navHudAllowed=true;}catch(e){}
-  }
-  document.addEventListener('pointerup',function(e){
-    var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
-    if(isCloseButton(b)){
-      e.preventDefault();e.stopImmediatePropagation();dismiss();
-    }else if(isStartButton(b)){start();}
-  },true);
-  document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
-    if(isCloseButton(b)){
-      e.preventDefault();e.stopImmediatePropagation();dismiss();
-    }else if(isStartButton(b)){start();}
-  },true);
-  var obs=new MutationObserver(function(){if(dismissed)hide()});
-  function install(){
-    var root=document.documentElement;
-    if(root)obs.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-})();
-</script>
-
-<!-- RR-POST-ROUTE-HUD-GUARD-2026-08-17 -->
-<script>
-(function(){
-  function keepHudClosedUnlessNavigating(){
-    var n=document.getElementById('navOverlay');
-    if(!n)return;
-    if(!window.navActive){
-      n.classList.remove('open');
-      n.setAttribute('aria-hidden','true');
-    }
-  }
-  var original=window.updateNextTurnOverlay;
-  if(typeof original==='function'){
-    window.updateNextTurnOverlay=function(activeIndex,distOverride,openHud){
-      if(!window.navActive) openHud=false;
-      return original.call(this,activeIndex,distOverride,openHud);
-    };
-  }
-  document.addEventListener('DOMContentLoaded',keepHudClosedUnlessNavigating,{once:true});
-  setTimeout(keepHudClosedUnlessNavigating,0);
 })();
 </script>
 
