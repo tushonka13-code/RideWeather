@@ -4917,5 +4917,28 @@ body.rr-user-dismissed-nav #navOverlay{display:none!important;visibility:hidden!
 })();
 </script>
 
+<!-- RR-POST-ROUTE-HUD-GUARD-2026-08-17 -->
+<script>
+(function(){
+  function keepHudClosedUnlessNavigating(){
+    var n=document.getElementById('navOverlay');
+    if(!n)return;
+    if(!window.navActive){
+      n.classList.remove('open');
+      n.setAttribute('aria-hidden','true');
+    }
+  }
+  var original=window.updateNextTurnOverlay;
+  if(typeof original==='function'){
+    window.updateNextTurnOverlay=function(activeIndex,distOverride,openHud){
+      if(!window.navActive) openHud=false;
+      return original.call(this,activeIndex,distOverride,openHud);
+    };
+  }
+  document.addEventListener('DOMContentLoaded',keepHudClosedUnlessNavigating,{once:true});
+  setTimeout(keepHudClosedUnlessNavigating,0);
+})();
+</script>
+
 </body>
 </html>
