@@ -2039,7 +2039,7 @@ async function routeRequest(locations,opts){
       shortest:!!opts.shortest
     }},
     units:'miles',
-    alternates:2,
+    alternates:1,
     directions_options:{units:'miles'}
   };
   if(Array.isArray(opts.excludeLocations)&&opts.excludeLocations.length){
@@ -2054,7 +2054,7 @@ async function routeRequest(locations,opts){
     'https://valhalla.openstreetmap.de/route',
     'https://valhalla1.openstreetmap.de/route'
   ];
-  const requestTimeout=Number(opts.timeoutMs||8000);
+  const requestTimeout=Number(opts.timeoutMs||6500);
   const attempts=routeHosts.map(url=>
     fetchJsonWithTimeout(url,{
       method:'POST',
@@ -5247,5 +5247,24 @@ body.rr-nav-hard-closed #navOverlay{display:none!important;visibility:hidden!imp
 })();
 </script>
 
+<script id="rr-nav-user-dismiss-fix">
+(function(){
+  let dismissed=false;
+  const nav=()=>document.getElementById('navOverlay');
+  const hide=()=>{const n=nav();if(n){n.classList.remove('open');n.setAttribute('aria-hidden','true')}};
+  const show=()=>{dismissed=false;const n=nav();if(n)n.removeAttribute('aria-hidden')};
+  document.addEventListener('click',function(e){
+    const n=nav(), b=e.target.closest?.('button,[role="button"]');
+    if(!b)return;
+    if(n&&n.contains(b)){
+      const t=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')).trim().toLowerCase();
+      if(t.includes('close')||t==='x'||t==='×'){dismissed=true;hide();return;}
+    }
+    if(dismissed && ((b.id||'').toLowerCase().includes('startnav') || (b.textContent||'').toLowerCase().includes('start navigation')))show();
+  },true);
+  const obs=new MutationObserver(()=>{if(dismissed)hide()});
+  obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+})();
+</script>
 </body>
 </html>
