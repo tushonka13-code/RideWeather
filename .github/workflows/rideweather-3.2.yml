@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[rr-3.4-patch]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[rr-3.4-applied]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -145,5 +145,5 @@ jobs:
           git config user.email "41898282+github-actions[bot].com"
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Post-route HUD guard and mobile controls [rr-3.4-patch]"
+          git commit -m "Post-route HUD guard and mobile controls [rr-3.4-applied]"
           git push
