@@ -1547,6 +1547,43 @@ body.rr-map-picking .map-bottom-status{z-index:12000!important}
 .route-option .route-tag{float:none!important;position:absolute!important;top:10px!important;right:10px!important}
 </style>
 
+<!-- RR-ROOT-INTERACTION-FIX-2026-08-17 -->
+<style id="rr-root-interaction-css">
+/* The hidden navigation HUD must never sit above the app and steal touches. */
+#navOverlay:not(.open){pointer-events:none!important;visibility:hidden!important;}
+#navOverlay.open{pointer-events:auto!important;visibility:visible!important;}
+@media(max-width:700px){
+  .app-topbar{left:8px!important;right:8px!important;top:8px!important;width:auto!important;box-sizing:border-box!important;overflow:visible!important;}
+  .app-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;width:100%!important;box-sizing:border-box!important;}
+  .app-actions button{width:100%!important;min-width:0!important;height:46px!important;min-height:46px!important;padding:8px 4px!important;margin:0!important;box-sizing:border-box!important;border-radius:11px!important;font-size:12px!important;line-height:1.1!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;}
+  .app-actions #locateBtn{font-size:11px!important;}
+  .main-menu-panel{left:8px!important;right:8px!important;top:62px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;}
+  .main-menu-list button{min-height:48px!important;font-size:15px!important;white-space:normal!important;overflow:visible!important;}
+}
+</style>
+<script id="rr-root-interaction-js">
+(function(){
+  function syncNavPointerEvents(){
+    var n=document.getElementById('navOverlay');
+    if(!n)return;
+    var open=n.classList.contains('open');
+    n.style.setProperty('pointer-events',open?'auto':'none','important');
+    n.style.setProperty('visibility',open?'visible':'hidden','important');
+  }
+  function install(){
+    var n=document.getElementById('navOverlay');
+    if(!n)return;
+    syncNavPointerEvents();
+    if(!n.__rrRootGuard){
+      n.__rrRootGuard=true;
+      new MutationObserver(syncNavPointerEvents).observe(n,{attributes:true,attributeFilter:['class']});
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+  window.addEventListener('load',install,{once:true});
+})();
+</script>
+
 </head>
 <body>
 <div class="app-topbar">
