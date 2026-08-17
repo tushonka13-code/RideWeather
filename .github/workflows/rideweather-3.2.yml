@@ -63,7 +63,7 @@ jobs:
               var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
               if(isCloseButton(b)){
                 e.preventDefault();e.stopImmediatePropagation();dismiss();
-              }else if(isStartButton(b){start();}
+              }else if(isStartButton(b)){start();}
             },true);
             document.addEventListener('click',function(e){
               var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
