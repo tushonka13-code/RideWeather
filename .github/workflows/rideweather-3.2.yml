@@ -17,61 +17,55 @@ jobs:
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text()
-          old='src="rocketride-logo.png"'
-          if old in s:
-              s=s.replace(old,'src="rocketride-logo.svg"',1)
-          # Persistent close guard: if the user explicitly closes the navigation HUD,
-          # suppress any delayed legacy handler from reopening it. A fresh Start Navigation
-          # click is outside the HUD and is therefore unaffected.
-          marker5='/* RR-3.2.4 NAV CLOSE GUARD */'
-          if marker5 not in s:
-              patch5=r'''<!-- RR-3.2.4 NAV CLOSE GUARD -->
-          <style id="rocketride-324-nav-close-guard">
-          body.rr-nav-closed #navOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
+          marker='/* RR-3.2.5 DEFINITIVE NAV CLOSE */'
+          if marker not in s:
+              patch=r'''<!-- RR-3.2.5 DEFINITIVE NAV CLOSE -->
+          <style id="rr-325-nav-close">
+          body.rr-nav-hard-closed #navOverlay{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
           </style>
-          <script id="rocketride-324-nav-close-guard-js">
+          <script id="rr-325-nav-close-js">
           (function(){
-            let closedUntil=0;
-            function nav(){return document.getElementById('navOverlay')}
+            let hardClosed=false;
+            let unlockTimer=null;
+            function n(){return document.getElementById('navOverlay')}
             function hide(){
-              const n=nav();
-              if(n){n.classList.remove('open');n.style.display='none';}
-              document.body.classList.add('rr-nav-closed');
+              const x=n();
+              if(x){x.classList.remove('open');x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}
+              document.body.classList.add('rr-nav-hard-closed');
             }
-            function release(){
-              if(Date.now()>=closedUntil){
-                document.body.classList.remove('rr-nav-closed');
-                const n=nav();
-                if(n)n.style.removeProperty('display');
-              }
+            function unlock(){
+              hardClosed=false;
+              document.body.classList.remove('rr-nav-hard-closed');
+              const x=n();
+              if(x){x.style.removeProperty('display');x.removeAttribute('aria-hidden')}
             }
             document.addEventListener('click',function(e){
-              const n=e.target.closest?.('#navOverlay');
-              if(!n)return;
+              const x=n();
               const b=e.target.closest?.('button,[role="button"]');
               if(!b)return;
-              const text=(b.textContent||'').trim().toLowerCase();
-              const label=((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).toLowerCase();
-              const isClose=text==='close' || text.includes('close') || label.includes('close') || b.classList.contains('panel-close') || b.classList.contains('nav-close');
-              if(!isClose)return;
-              closedUntil=Date.now()+5000;
-              hide();
-              requestAnimationFrame(hide);
-              setTimeout(hide,25);
-              setTimeout(hide,100);
-              setTimeout(hide,500);
-              setTimeout(hide,1500);
-              setTimeout(hide,3000);
-              setTimeout(release,5100);
+              const text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
+              const inside=x && x.contains(b);
+              const close=inside && (text.includes('close')||text.includes('dismiss')||text.includes('cancel')||text.includes('exit')||text==='x' || text==='×');
+              if(close){
+                hardClosed=true;
+                if(unlockTimer)clearTimeout(unlockTimer);
+                hide();
+                [0,25,100,300,1000,3000,7000].forEach(t=>setTimeout(()=>{if(hardClosed)hide()},t));
+                unlockTimer=setTimeout(unlock,10000);
+                return;
+              }
+              if(hardClosed && !inside){
+                const start=(b.id||'').toLowerCase()+ ' '+text;
+                if(start.includes('start navigation')){unlock();return}
+                hide();
+              }
             },true);
-            const observer=new MutationObserver(function(){
-              if(Date.now()<closedUntil)hide();
-            });
-            observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+            const observer=new MutationObserver(function(){if(hardClosed)hide()});
+            observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
           })();
           </script>
           '''
-              s=s.replace('</body>',patch5+'\n</body>')
+              s=s.replace('</body>',patch+'\n</body>')
           p.write_text(s)
           PY
       - name: Commit patched index
@@ -80,5 +74,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Stop navigation HUD reopening after close [rr-3.2-patch]"
+          git commit -m "Definitively stop navigation reopening after close [rr-3.2-patch]"
           git push
