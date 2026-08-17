@@ -1,0 +1,69 @@
+name: Fix navigation dismiss state
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make navigation Close persistent
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # One authoritative global state survives all of the legacy overlay guards.
+          if 'window.rrNavHudDismissed' not in s:
+              s = s.replace(
+                  'let navHudAllowed=false; let navWatchId=',
+                  'let navHudAllowed=false; window.rrNavHudDismissed=false; let navWatchId=',
+                  1
+              )
+
+          # Explicitly starting navigation is the only normal action that re-enables the HUD.
+          s = s.replace(
+              'function startNavigation(){\n  navHudAllowed=true;',
+              'function startNavigation(){\n  window.rrNavHudDismissed=false;\n  navHudAllowed=true;',
+              1
+          )
+
+          # Never let an ordinary route/GPS update reopen a HUD the user dismissed.
+          old = 'function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){\n'
+          new = old + '  if(window.rrNavHudDismissed){\n    document.getElementById(\'navOverlay\')?.classList.remove(\'open\');\n    return;\n  }\n'
+          if old in s and 'if(window.rrNavHudDismissed)' not in s:
+              s = s.replace(old, new, 1)
+
+          # Catch the actual navigation controller action, which is the reliable
+          # close path on iPhone where click/pointer events can be layered by Leaflet.
+          old = "}else if(id==='overlayClose'){\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
+          new = "}else if(id==='overlayClose'){\n        window.rrNavHudDismissed=true;\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
+          if old in s:
+              s = s.replace(old, new, 1)
+
+          # Also catch direct button clicks handled by any earlier legacy controller.
+          if 'id="rr-nav-dismiss-final"' not in s:
+              patch = r'''\n<script id="rr-nav-dismiss-final">\n(function(){\n  document.addEventListener('click',function(e){\n    const b=e.target.closest?.('#overlayClose');\n    if(!b)return;\n    window.rrNavHudDismissed=true;\n    document.getElementById('navOverlay')?.classList.remove('open');\n  },true);\n})();\n</script>\n'''
+              s = s.replace('</body>', patch + '</body>', 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/fix-nav-dismiss.yml
+          git commit -m "Make navigation Close persistent"
+          git push
