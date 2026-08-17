@@ -21,38 +21,36 @@ jobs:
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
 
-          # Keep the Start Navigation HUD closed after the user explicitly closes it.
-          old = "let navHudAllowed=false;"
-          new = "let navHudAllowed=false; let navHudUserClosed=false;"
-          if old not in s:
-              raise SystemExit('Could not find navigation state declaration')
-          s = s.replace(old, new, 1)
+          # Persistent user dismissal. This does not depend on the existing close handler's exact formatting.
+          patch = r'''<script id="rr-nav-user-dismiss-fix">
+          (function(){
+            let dismissed=false;
+            const nav=()=>document.getElementById('navOverlay');
+            const hide=()=>{const n=nav();if(n){n.classList.remove('open');n.setAttribute('aria-hidden','true')}};
+            const show=()=>{dismissed=false;const n=nav();if(n)n.removeAttribute('aria-hidden')};
+            document.addEventListener('click',function(e){
+              const n=nav(), b=e.target.closest?.('button,[role="button"]');
+              if(!b)return;
+              if(n&&n.contains(b)){
+                const t=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')).trim().toLowerCase();
+                if(t.includes('close')||t==='x'||t==='×'){dismissed=true;hide();return;}
+              }
+              if(dismissed && ((b.id||'').toLowerCase().includes('startnav') || (b.textContent||'').toLowerCase().includes('start navigation')))show();
+            },true);
+            const obs=new MutationObserver(()=>{if(dismissed)hide()});
+            obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+          })();
+          </script>'''
+          if 'id="rr-nav-user-dismiss-fix"' not in s:
+              s=s.replace('</body>',patch+'\n</body>')
 
-          old = "function startNavigation(){\n"
-          new = "function startNavigation(){\n  navHudUserClosed=false;\n"
-          if old not in s:
-              raise SystemExit('Could not find startNavigation')
-          s = s.replace(old, new, 1)
-
-          old = "function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){\n"
-          new = "function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){\n  if(navHudUserClosed)openHud=false;\n"
-          if old not in s:
-              raise SystemExit('Could not find updateNextTurnOverlay')
-          s = s.replace(old, new, 1)
-
-          old = "}else if(id==='overlayClose'){\n        // Closing the HUD is a user choice: don't let the next GPS/map update\n        // immediately reopen it. Navigation can still be started from the main\n        // Start Navigation control when the user actually wants it.\n        navHudAllowed=false;\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
-          new = "}else if(id==='overlayClose'){\n        navHudUserClosed=true;\n        navHudAllowed=false;\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
-          if old not in s:
-              raise SystemExit('Could not find overlayClose handler')
-          s = s.replace(old, new, 1)
-
-          # Faster initial route response: the primary calculation does not need two server alternates.
+          # Faster initial route response: one alternate is enough for the primary calculation.
           if "alternates:2," in s:
-              s = s.replace("alternates:2,", "alternates:1,", 1)
+              s=s.replace("alternates:2,","alternates:1,",1)
           if "const requestTimeout=Number(opts.timeoutMs||8000);" in s:
-              s = s.replace("const requestTimeout=Number(opts.timeoutMs||8000);", "const requestTimeout=Number(opts.timeoutMs||6500);", 1)
+              s=s.replace("const requestTimeout=Number(opts.timeoutMs||8000);","const requestTimeout=Number(opts.timeoutMs||6500);",1)
 
-          p.write_text(s, encoding='utf-8')
+          p.write_text(s,encoding='utf-8')
 
       - name: Commit fix and remove one-time workflow
         shell: bash
@@ -61,5 +59,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git rm .github/workflows/fix-nav-overlay-close.yml
-          git commit -m "Fix navigation close and speed initial route calculation"
+          git commit -m "Fix navigation close and speed initial route calculation [rr-3.2-patch]"
           git push
