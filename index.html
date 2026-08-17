@@ -1769,7 +1769,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 let currentAlerts=[], alertSpokenIds=new Set();
-let navHudAllowed=false; let navWatchId=null, navMarker=null, navAccuracy=null, navActive=false, navLastManeuver=-1, navRouteData=null, navLastSpeak=0, navOffRouteCount=0, navRecalcBusy=false;
+let navHudAllowed=false; window.rrNavHudDismissed=false; let navWatchId=null, navMarker=null, navAccuracy=null, navActive=false, navLastManeuver=-1, navRouteData=null, navLastSpeak=0, navOffRouteCount=0, navRecalcBusy=false;
 let currentStartCoords=null,currentLocationCoords=null;
 $('curviness').addEventListener('input',()=>$('pct').textContent=$('curviness').value+'%');
 
@@ -3536,6 +3536,7 @@ function updateFreeRide(position){
 }
 
 function startNavigation(){
+  window.rrNavHudDismissed=false;
   navHudAllowed=true;
   window.rocketRideLocationOnlyMode=false;
   window.rocketRideLocationAccessActive=false;
@@ -3988,6 +3989,10 @@ function installRecenterBehavior(){
 }
 
 function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){
+  if(window.rrNavHudDismissed){
+    document.getElementById('navOverlay')?.classList.remove('open');
+    return;
+  }
   if(document.body.classList.contains('rr-location-only') ||
      document.getElementById('navOverlay')?.classList.contains('rr-location-suppressed'))openHud=false;
   if(window.rocketRideLocationOnlyMode)openHud=false;
@@ -4414,6 +4419,7 @@ document.addEventListener('DOMContentLoaded',function(){
           Promise.resolve(window.shareRide()).catch(e=>{console.error(e);toast('Could not share ride.');});
         else throw new Error('shareRide unavailable');
       }else if(id==='overlayClose'){
+        window.rrNavHudDismissed=true;
         document.getElementById('navOverlay')?.classList.remove('open');
       }
       return true;
@@ -5266,5 +5272,5 @@ body.rr-nav-hard-closed #navOverlay{display:none!important;visibility:hidden!imp
   obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
 })();
 </script>
-</body>
+\n<script id="rr-nav-dismiss-final">\n(function(){\n  document.addEventListener('click',function(e){\n    const b=e.target.closest?.('#overlayClose');\n    if(!b)return;\n    window.rrNavHudDismissed=true;\n    document.getElementById('navOverlay')?.classList.remove('open');\n  },true);\n})();\n</script>\n</body>
 </html>
