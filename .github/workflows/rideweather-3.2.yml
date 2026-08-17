@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[rr-3.3-patch]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[rr-3.4-patch]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +91,6 @@ jobs:
             .app-topbar{left:8px!important;right:8px!important;top:8px!important;width:auto!important;overflow:visible!important;box-sizing:border-box!important}
             .app-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;width:100%!important}
             .app-actions button{width:100%!important;min-width:0!important;max-width:none!important;min-height:44px!important;height:44px!important;padding:8px 5px!important;margin:0!important;border-radius:12px!important;font-size:12px!important;line-height:1.05!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;box-sizing:border-box!important}
-            .map-brand{left:12px!important;top:62px!important;font-size:18px!important}
             .route-choice.primary-access{width:100%!important;box-sizing:border-box!important;padding:12px!important;overflow:hidden!important}
             .route-choice.primary-access .route-choice-head{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:9px!important}
             .route-choice.primary-access .route-find{width:100%!important;min-width:0!important;box-sizing:border-box!important;min-height:44px!important;padding:10px 12px!important;font-size:14px!important;border-radius:10px!important;white-space:nowrap!important}
@@ -111,45 +110,32 @@ jobs:
           '''
               s=s.replace('</head>',mobile_css+'\n</head>')
 
-          old='''async function selectRoute(index,start=lastStart,dest=lastDest){
-            if(!currentRouteCandidates[index]||!start||!dest)return;
-            currentSelectedRouteIndex=Number(index);
-            const chosen=currentRouteCandidates[index];
-            lastStart=start;lastDest=dest;
-            render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,index,lastWaypoints.length?lastWaypoints:[start,dest]);
-            syncRouteChoiceSelection(index);
-            $('weather').innerHTML='<div class="weather-note">Loading weather along selected route…</div>';
-            lastAlertShape=getShape(chosen.trip);
-            loadAlerts(lastAlertShape).catch(e=>console.error(e));
-            try{
-              await loadWeather(lastAlertShape,routeTime(chosen.trip),lastDeparture);
-            }catch(e){
-              $('weather').innerHTML='<div class="weather-note">Weather could not be loaded for this route: '+esc(e.message||e)+'</div>';
+          guard_marker='<!-- RR-POST-ROUTE-HUD-GUARD-2026-08-17 -->'
+          if guard_marker not in s:
+              guard=r'''<!-- RR-POST-ROUTE-HUD-GUARD-2026-08-17 -->
+          <script>
+          (function(){
+            function keepHudClosedUnlessNavigating(){
+              var n=document.getElementById('navOverlay');
+              if(!n)return;
+              if(!window.navActive){
+                n.classList.remove('open');
+                n.setAttribute('aria-hidden','true');
+              }
             }
-          }
+            var original=window.updateNextTurnOverlay;
+            if(typeof original==='function'){
+              window.updateNextTurnOverlay=function(activeIndex,distOverride,openHud){
+                if(!window.navActive) openHud=false;
+                return original.call(this,activeIndex,distOverride,openHud);
+              };
+            }
+            document.addEventListener('DOMContentLoaded',keepHudClosedUnlessNavigating,{once:true});
+            setTimeout(keepHudClosedUnlessNavigating,0);
+          })();
+          </script>
           '''
-          new='''async function selectRoute(index,start=lastStart,dest=lastDest){
-            if(!currentRouteCandidates[index]||!start||!dest)return;
-            currentSelectedRouteIndex=Number(index);
-            const chosen=currentRouteCandidates[index];
-            const selectionToken=++routeBuildToken;
-            lastStart=start;lastDest=dest;
-            render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,index,lastWaypoints.length?lastWaypoints:[start,dest]);
-            syncRouteChoiceSelection(index);
-            $('weather').innerHTML='<div class="weather-note">Loading weather along selected route…</div>';
-            lastAlertShape=getShape(chosen.trip);
-            loadAlerts(lastAlertShape).catch(e=>console.warn('Route alerts unavailable:',e));
-            loadWeather(lastAlertShape,routeTime(chosen.trip),lastDeparture).catch(e=>{
-              if(selectionToken!==routeBuildToken)return;
-              $('weather').innerHTML='<div class="weather-note">Weather could not be loaded for this route. The selected route is still ready to use.</div>';
-              console.warn('Route weather unavailable:',e);
-            });
-          }
-          '''
-          if old in s:
-              s=s.replace(old,new)
-          else:
-              print('selectRoute block not found; leaving route handler unchanged')
+              s=s.replace('</body>',guard+'\n</body>')
 
           p.write_text(s)
           PY
@@ -159,5 +145,5 @@ jobs:
           git config user.email "41898282+github-actions[bot].com"
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Mobile layout and alternate route selection fixes [rr-3.3-patch]"
+          git commit -m "Post-route HUD guard and mobile controls [rr-3.4-patch]"
           git push
