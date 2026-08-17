@@ -14,42 +14,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Patch navigation overlay close state
+      - name: Patch navigation overlay behavior and initial route speed
         shell: python
         run: |
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
 
+          # Keep the Start Navigation HUD closed after the user explicitly closes it.
           old = "let navHudAllowed=false;"
-          new = "let navHudAllowed=false; let navHudDismissed=false;"
+          new = "let navHudAllowed=false; let navHudUserClosed=false;"
           if old not in s:
               raise SystemExit('Could not find navigation state declaration')
           s = s.replace(old, new, 1)
 
           old = "function startNavigation(){\n"
-          new = "function startNavigation(){\n  navHudDismissed=false;\n"
+          new = "function startNavigation(){\n  navHudUserClosed=false;\n"
           if old not in s:
               raise SystemExit('Could not find startNavigation')
           s = s.replace(old, new, 1)
 
-          old = "function stopNavigation(){\n"
-          new = "function stopNavigation(){\n  navHudDismissed=true;\n"
-          if old not in s:
-              raise SystemExit('Could not find stopNavigation')
-          s = s.replace(old, new, 1)
-
           old = "function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){\n"
-          new = "function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){\n  if(navHudDismissed)openHud=false;\n"
+          new = "function updateNextTurnOverlay(activeIndex=navLastManeuver,distOverride=null,openHud=true){\n  if(navHudUserClosed)openHud=false;\n"
           if old not in s:
               raise SystemExit('Could not find updateNextTurnOverlay')
           s = s.replace(old, new, 1)
 
-          old = "}else if(id==='overlayClose'){\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
-          new = "}else if(id==='overlayClose'){\n        navHudDismissed=true;\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
+          old = "}else if(id==='overlayClose'){\n        // Closing the HUD is a user choice: don't let the next GPS/map update\n        // immediately reopen it. Navigation can still be started from the main\n        // Start Navigation control when the user actually wants it.\n        navHudAllowed=false;\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
+          new = "}else if(id==='overlayClose'){\n        navHudUserClosed=true;\n        navHudAllowed=false;\n        document.getElementById('navOverlay')?.classList.remove('open');\n      }"
           if old not in s:
               raise SystemExit('Could not find overlayClose handler')
           s = s.replace(old, new, 1)
+
+          # Faster initial route response: the primary calculation does not need two server alternates.
+          if "alternates:2," in s:
+              s = s.replace("alternates:2,", "alternates:1,", 1)
+          if "const requestTimeout=Number(opts.timeoutMs||8000);" in s:
+              s = s.replace("const requestTimeout=Number(opts.timeoutMs||8000);", "const requestTimeout=Number(opts.timeoutMs||6500);", 1)
 
           p.write_text(s, encoding='utf-8')
 
@@ -60,5 +61,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git rm .github/workflows/fix-nav-overlay-close.yml
-          git commit -m "Fix navigation overlay closing" 
+          git commit -m "Fix navigation close and speed initial route calculation"
           git push
