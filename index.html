@@ -5063,5 +5063,51 @@ body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:non
 })();
 </script>
 
+<!-- RR-3.2.4 NAV CLOSE GUARD -->
+<style id="rocketride-324-nav-close-guard">
+body.rr-nav-closed #navOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
+<script id="rocketride-324-nav-close-guard-js">
+(function(){
+  let closedUntil=0;
+  function nav(){return document.getElementById('navOverlay')}
+  function hide(){
+    const n=nav();
+    if(n){n.classList.remove('open');n.style.display='none';}
+    document.body.classList.add('rr-nav-closed');
+  }
+  function release(){
+    if(Date.now()>=closedUntil){
+      document.body.classList.remove('rr-nav-closed');
+      const n=nav();
+      if(n)n.style.removeProperty('display');
+    }
+  }
+  document.addEventListener('click',function(e){
+    const n=e.target.closest?.('#navOverlay');
+    if(!n)return;
+    const b=e.target.closest?.('button,[role="button"]');
+    if(!b)return;
+    const text=(b.textContent||'').trim().toLowerCase();
+    const label=((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).toLowerCase();
+    const isClose=text==='close' || text.includes('close') || label.includes('close') || b.classList.contains('panel-close') || b.classList.contains('nav-close');
+    if(!isClose)return;
+    closedUntil=Date.now()+5000;
+    hide();
+    requestAnimationFrame(hide);
+    setTimeout(hide,25);
+    setTimeout(hide,100);
+    setTimeout(hide,500);
+    setTimeout(hide,1500);
+    setTimeout(hide,3000);
+    setTimeout(release,5100);
+  },true);
+  const observer=new MutationObserver(function(){
+    if(Date.now()<closedUntil)hide();
+  });
+  observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+})();
+</script>
+
 </body>
 </html>
