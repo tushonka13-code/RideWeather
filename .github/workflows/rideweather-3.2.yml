@@ -20,149 +20,58 @@ jobs:
           old='src="rocketride-logo.png"'
           if old in s:
               s=s.replace(old,'src="rocketride-logo.svg"',1)
-          marker='<!-- RR-3.2 UI PATCH -->'
-          if marker not in s:
-              patch=r'''<!-- RR-3.2 UI PATCH -->
-          <style id="rocketride-32-final-ui">
-          @media(max-width:700px){
-            .app-topbar{left:8px!important;right:8px!important;top:8px!important;width:auto!important;height:auto!important;overflow:visible!important;display:flex!important;align-items:flex-start!important;gap:6px!important}
-            .app-brand{flex:0 0 120px!important;width:120px!important;min-width:120px!important}
-            .app-actions{flex:1 1 auto!important;min-width:0!important;width:auto!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
-            .app-actions button{min-width:0!important;width:100%!important;min-height:46px!important;height:auto!important;border-radius:13px!important;font-size:12px!important;padding:7px 3px!important;overflow:hidden!important;white-space:normal!important;line-height:1.05!important;box-sizing:border-box!important}
-            .map-brand{left:8px!important;top:8px!important;width:116px!important;height:46px!important}
-            .map-brand img{width:116px!important;max-width:116px!important;max-height:46px!important}
-            .card{left:8px!important;right:8px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;overflow-x:hidden!important}
-            .card .plan-section{padding-left:14px!important;padding-right:14px!important;box-sizing:border-box!important;overflow:hidden!important}
-            .card .route-field-main,.card .input-action-row{min-width:0!important;max-width:100%!important;box-sizing:border-box!important}
-            .card .input-action-row{grid-template-columns:minmax(0,1fr)!important;gap:7px!important}
-            .card .input-action-row input{min-width:0!important;max-width:100%!important;width:100%!important}
-            .card .input-action-row button{grid-column:auto!important;grid-row:auto!important;width:100%!important;min-width:0!important;max-width:100%!important;padding:8px 10px!important;font-size:13px!important}
-            .card .add-stop-btn{margin-left:39px!important;width:calc(100% - 39px)!important;max-width:calc(100% - 39px)!important;box-sizing:border-box!important}
-            .route-dot,.stop-dot,.nav-dot,.location-dot{width:24px!important;height:24px!important;min-width:24px!important;max-width:24px!important;aspect-ratio:1/1!important;flex:none!important}
-            .nav-overlay{left:10px!important;right:10px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;overflow-x:hidden!important}
-            .nav-overlay *{box-sizing:border-box!important;min-width:0!important;max-width:100%!important}
-            .nav-overlay p,.nav-overlay span,.nav-overlay div,.nav-overlay h1,.nav-overlay h2,.nav-overlay h3{overflow-wrap:anywhere!important;word-break:normal!important}
-            .nav-overlay .nav-content,.nav-overlay .nav-main,.nav-overlay .nav-body,.nav-overlay .nav-details{width:100%!important;max-width:100%!important;min-width:0!important;grid-template-columns:minmax(0,1fr)!important}
-          }
+          # Persistent close guard: if the user explicitly closes the navigation HUD,
+          # suppress any delayed legacy handler from reopening it. A fresh Start Navigation
+          # click is outside the HUD and is therefore unaffected.
+          marker5='/* RR-3.2.4 NAV CLOSE GUARD */'
+          if marker5 not in s:
+              patch5=r'''<!-- RR-3.2.4 NAV CLOSE GUARD -->
+          <style id="rocketride-324-nav-close-guard">
+          body.rr-nav-closed #navOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
           </style>
-          <script id="rocketride-32-location-fix">
+          <script id="rocketride-324-nav-close-guard-js">
           (function(){
-            const byId=id=>document.getElementById(id);
-            let locationFixActive=false;
-            function suppressNav(){
-              locationFixActive=true;
-              window.rocketRideLocationOnlyMode=true;
-              window.rocketRideLocationAccessActive=true;
-              document.body.classList.add('rr-location-only');
-              const n=byId('navOverlay');
-              if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
+            let closedUntil=0;
+            function nav(){return document.getElementById('navOverlay')}
+            function hide(){
+              const n=nav();
+              if(n){n.classList.remove('open');n.style.display='none';}
+              document.body.classList.add('rr-nav-closed');
             }
-            function releaseNav(){
-              locationFixActive=false;
-              window.rocketRideLocationOnlyMode=false;
-              window.rocketRideLocationAccessActive=false;
-              document.body.classList.remove('rr-location-only');
-              const n=byId('navOverlay');
-              if(n){n.classList.remove('rr-location-suppressed');n.classList.remove('open');}
+            function release(){
+              if(Date.now()>=closedUntil){
+                document.body.classList.remove('rr-nav-closed');
+                const n=nav();
+                if(n)n.style.removeProperty('display');
+              }
             }
-            window.rocketRideEnterLocationOnly=suppressNav;
-            window.rocketRideExitLocationOnly=releaseNav;
-            window.rocketRideLocationFixActive=()=>locationFixActive;
-            document.addEventListener('click',e=>{
-              const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
-              if(b)suppressNav();
-            },true);
-            const obs=new MutationObserver(()=>{
-              if(!locationFixActive)return;
-              const n=byId('navOverlay');
-              if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
-            });
-            obs.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style']});
-          })();
-          </script>
-          '''
-              s=s.replace('</body>',patch+'\n</body>')
-          marker2='/* RR-3.2.1 MOBILE FIT */'
-          if marker2 not in s:
-              patch2=r'''<!-- RR-3.2.1 MOBILE FIT -->
-          <style id="rocketride-321-mobile-fit">
-          @media(max-width:700px){
-            html,body{width:100%!important;max-width:100%!important;overflow:hidden!important}
-            #map{width:100%!important;max-width:100%!important}
-            .app-topbar{left:132px!important;right:8px!important;width:auto!important;overflow:visible!important}
-            .app-actions{width:100%!important;max-width:100%!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
-            .app-actions button{box-sizing:border-box!important}
-            .card{right:8px!important;overflow-x:hidden!important}
-            .card .plan-section,.card .route-field-main,.card .input-action-row{box-sizing:border-box!important}
-          }
-          </style>
-          '''
-              s=s.replace('</body>',patch2+'\n</body>')
-          marker3='/* RR-3.2.2 LOCATION HUD GUARD */'
-          if marker3 not in s:
-              patch3=r'''<!-- RR-3.2.2 LOCATION HUD GUARD -->
-          <style id="rocketride-322-location-guard">
-          body.rr-location-only #navOverlay,#navOverlay.rr-location-suppressed{display:none!important;visibility:hidden!important;pointer-events:none!important}
-          </style>
-          <script id="rocketride-322-location-guard-js">
-          (function(){
-            let until=0;
             document.addEventListener('click',function(e){
-              const b=e.target.closest?.('#locateBtn,#useCurrentStart,#mapLocateFab');
-              if(b)until=Date.now()+20000;
+              const n=e.target.closest?.('#navOverlay');
+              if(!n)return;
+              const b=e.target.closest?.('button,[role="button"]');
+              if(!b)return;
+              const text=(b.textContent||'').trim().toLowerCase();
+              const label=((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).toLowerCase();
+              const isClose=text==='close' || text.includes('close') || label.includes('close') || b.classList.contains('panel-close') || b.classList.contains('nav-close');
+              if(!isClose)return;
+              closedUntil=Date.now()+5000;
+              hide();
+              requestAnimationFrame(hide);
+              setTimeout(hide,25);
+              setTimeout(hide,100);
+              setTimeout(hide,500);
+              setTimeout(hide,1500);
+              setTimeout(hide,3000);
+              setTimeout(release,5100);
             },true);
             const observer=new MutationObserver(function(){
-              if(Date.now()>until)return;
-              const n=document.getElementById('navOverlay');
-              if(n){n.classList.remove('open');n.classList.add('rr-location-suppressed');}
-              document.body.classList.add('rr-location-only');
+              if(Date.now()<closedUntil)hide();
             });
             observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
-            window.addEventListener('pageshow',()=>{until=0;document.body.classList.remove('rr-location-only');document.getElementById('navOverlay')?.classList.remove('rr-location-suppressed','open');},true);
           })();
           </script>
           '''
-              s=s.replace('</body>',patch3+'\n</body>')
-          marker4='/* RR-3.2.3 NAV MOBILE + MENU GUARD */'
-          if marker4 not in s:
-              patch4=r'''<!-- RR-3.2.3 NAV MOBILE + MENU GUARD -->
-          <style id="rocketride-323-nav-mobile">
-          @media(max-width:700px){
-            .nav-overlay{left:8px!important;right:8px!important;width:calc(100vw - 16px)!important;max-width:calc(100vw - 16px)!important;padding-left:14px!important;padding-right:14px!important;overflow-x:hidden!important}
-            .nav-overlay .nav-hud-row{flex-wrap:wrap!important;width:100%!important}
-            .nav-overlay .speed-box,.nav-overlay .speed-limit-box{flex:0 0 72px!important;width:72px!important;min-width:72px!important}
-            .nav-overlay .nav-turn,.nav-overlay .turn-instruction,.nav-overlay .nav-instruction,.nav-overlay .instruction{width:100%!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
-            .nav-overlay button{max-width:100%!important;white-space:normal!important}
-            .nav-overlay .nav-direction,.nav-overlay .nav-distance,.nav-overlay .nav-road{max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
-          }
-          </style>
-          <script id="rocketride-323-menu-guard">
-          (function(){
-            let menuGuardUntil=0;
-            function closeNav(){
-              const n=document.getElementById('navOverlay');
-              if(n){n.classList.remove('open');n.classList.remove('rr-location-suppressed');}
-            }
-            document.addEventListener('click',function(e){
-              const b=e.target.closest?.('.app-actions button,#menuBtn,[aria-label*="menu" i],[title*="menu" i]');
-              if(!b)return;
-              const t=(b.textContent||'').trim().toLowerCase();
-              if(t.includes('menu') || b.id==='menuBtn' || b.getAttribute('aria-label')?.toLowerCase().includes('menu')){
-                menuGuardUntil=Date.now()+2500;
-                closeNav();
-                requestAnimationFrame(closeNav);
-                setTimeout(closeNav,50);
-                setTimeout(closeNav,250);
-                setTimeout(closeNav,1000);
-                setTimeout(closeNav,2000);
-              }
-            },true);
-            const observer=new MutationObserver(function(){if(Date.now()<menuGuardUntil)closeNav();});
-            observer.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style']});
-          })();
-          </script>
-          '''
-              s=s.replace('</body>',patch4+'\n</body>')
+              s=s.replace('</body>',patch5+'\n</body>')
           p.write_text(s)
           PY
       - name: Commit patched index
@@ -171,5 +80,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Fix nav clipping circles and menu navigation reopen [rr-3.2-patch]"
+          git commit -m "Stop navigation HUD reopening after close [rr-3.2-patch]"
           git push
