@@ -5272,5 +5272,66 @@ body.rr-nav-hard-closed #navOverlay{display:none!important;visibility:hidden!imp
   obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
 })();
 </script>
-\n<script id="rr-nav-dismiss-final">\n(function(){\n  document.addEventListener('click',function(e){\n    const b=e.target.closest?.('#overlayClose');\n    if(!b)return;\n    window.rrNavHudDismissed=true;\n    document.getElementById('navOverlay')?.classList.remove('open');\n  },true);\n})();\n</script>\n</body>
+\n<script id="rr-nav-dismiss-final">\n(function(){\n  document.addEventListener('click',function(e){\n    const b=e.target.closest?.('#overlayClose');\n    if(!b)return;\n    window.rrNavHudDismissed=true;\n    document.getElementById('navOverlay')?.classList.remove('open');\n  },true);\n})();\n</script>\n<!-- RR-FINAL-NAV-DISMISS-2026-08-17 -->
+<style id="rr-final-nav-dismiss-css">
+body.rr-user-dismissed-nav #navOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
+<script id="rr-final-nav-dismiss-js">
+(function(){
+  var dismissed=false;
+  function nav(){return document.getElementById('navOverlay')}
+  function hide(){
+    var n=nav();
+    if(n){n.classList.remove('open');n.setAttribute('aria-hidden','true')}
+    document.body.classList.add('rr-user-dismissed-nav');
+  }
+  function release(){
+    dismissed=false;
+    document.body.classList.remove('rr-user-dismissed-nav');
+    var n=nav();
+    if(n)n.removeAttribute('aria-hidden');
+  }
+  function isCloseButton(b){
+    if(!b)return false;
+    var id=(b.id||'').toLowerCase();
+    var text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
+    return id==='overlayclose' || text==='close' || text==='close navigation' || text==='x' || text==='×';
+  }
+  function isStartButton(b){
+    if(!b)return false;
+    var id=(b.id||'').toLowerCase();
+    var text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
+    return id==='overlaystartnav' || text.indexOf('start navigation')>=0;
+  }
+  function dismiss(){
+    dismissed=true;
+    try{navHudAllowed=false;}catch(e){}
+    hide();
+  }
+  function start(){
+    release();
+    try{navHudAllowed=true;}catch(e){}
+  }
+  document.addEventListener('pointerup',function(e){
+    var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
+    if(isCloseButton(b)){
+      e.preventDefault();e.stopImmediatePropagation();dismiss();
+    }else if(isStartButton(b)){start();}
+  },true);
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
+    if(isCloseButton(b)){
+      e.preventDefault();e.stopImmediatePropagation();dismiss();
+    }else if(isStartButton(b)){start();}
+  },true);
+  var obs=new MutationObserver(function(){if(dismissed)hide()});
+  function install(){
+    var root=document.documentElement;
+    if(root)obs.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
+</script>
+
+</body>
 </html>
