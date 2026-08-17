@@ -11,68 +11,83 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch RideWeather
+      - name: Install final navigation behavior patch
         run: |
           python3 <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text()
-          marker='/* RR-3.2.5 DEFINITIVE NAV CLOSE */'
+          marker='<!-- RR-FINAL-NAV-DISMISS-2026-08-17 -->'
           if marker not in s:
-              patch=r'''<!-- RR-3.2.5 DEFINITIVE NAV CLOSE -->
-          <style id="rr-325-nav-close">
-          body.rr-nav-hard-closed #navOverlay{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+              patch=r'''<!-- RR-FINAL-NAV-DISMISS-2026-08-17 -->
+          <style id="rr-final-nav-dismiss-css">
+          body.rr-user-dismissed-nav #navOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
           </style>
-          <script id="rr-325-nav-close-js">
+          <script id="rr-final-nav-dismiss-js">
           (function(){
-            let hardClosed=false;
-            let unlockTimer=null;
-            function n(){return document.getElementById('navOverlay')}
+            var dismissed=false;
+            function nav(){return document.getElementById('navOverlay')}
             function hide(){
-              const x=n();
-              if(x){x.classList.remove('open');x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}
-              document.body.classList.add('rr-nav-hard-closed');
+              var n=nav();
+              if(n){n.classList.remove('open');n.setAttribute('aria-hidden','true')}
+              document.body.classList.add('rr-user-dismissed-nav');
             }
-            function unlock(){
-              hardClosed=false;
-              document.body.classList.remove('rr-nav-hard-closed');
-              const x=n();
-              if(x){x.style.removeProperty('display');x.removeAttribute('aria-hidden')}
+            function release(){
+              dismissed=false;
+              document.body.classList.remove('rr-user-dismissed-nav');
+              var n=nav();
+              if(n)n.removeAttribute('aria-hidden');
             }
-            document.addEventListener('click',function(e){
-              const x=n();
-              const b=e.target.closest?.('button,[role="button"]');
-              if(!b)return;
-              const text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
-              const inside=x && x.contains(b);
-              const close=inside && (text.includes('close')||text.includes('dismiss')||text.includes('cancel')||text.includes('exit')||text==='x' || text==='×');
-              if(close){
-                hardClosed=true;
-                if(unlockTimer)clearTimeout(unlockTimer);
-                hide();
-                [0,25,100,300,1000,3000,7000].forEach(t=>setTimeout(()=>{if(hardClosed)hide()},t));
-                unlockTimer=setTimeout(unlock,10000);
-                return;
-              }
-              if(hardClosed && !inside){
-                const start=(b.id||'').toLowerCase()+ ' '+text;
-                if(start.includes('start navigation')){unlock();return}
-                hide();
-              }
+            function isCloseButton(b){
+              if(!b)return false;
+              var id=(b.id||'').toLowerCase();
+              var text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
+              return id==='overlayclose' || text==='close' || text==='close navigation' || text==='x' || text==='×';
+            }
+            function isStartButton(b){
+              if(!b)return false;
+              var id=(b.id||'').toLowerCase();
+              var text=((b.textContent||'')+' '+(b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')).trim().toLowerCase();
+              return id==='overlaystartnav' || text.indexOf('start navigation')>=0;
+            }
+            function dismiss(){
+              dismissed=true;
+              try{navHudAllowed=false;}catch(e){}
+              hide();
+            }
+            function start(){
+              release();
+              try{navHudAllowed=true;}catch(e){}
+            }
+            document.addEventListener('pointerup',function(e){
+              var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
+              if(isCloseButton(b)){
+                e.preventDefault();e.stopImmediatePropagation();dismiss();
+              }else if(isStartButton(b){start();}
             },true);
-            const observer=new MutationObserver(function(){if(hardClosed)hide()});
-            observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+            document.addEventListener('click',function(e){
+              var b=e.target.closest&&e.target.closest('#overlayClose,#overlayStartNav');
+              if(isCloseButton(b)){
+                e.preventDefault();e.stopImmediatePropagation();dismiss();
+              }else if(isStartButton(b)){start();}
+            },true);
+            var obs=new MutationObserver(function(){if(dismissed)hide()});
+            function install(){
+              var root=document.documentElement;
+              if(root)obs.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+            }
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
           })();
           </script>
           '''
               s=s.replace('</body>',patch+'\n</body>')
-          p.write_text(s)
+              p.write_text(s)
           PY
       - name: Commit patched index
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot].com"
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Definitively stop navigation reopening after close [rr-3.2-patch]"
+          git commit -m "Final navigation dismiss behavior [rr-3.2-patch]"
           git push
