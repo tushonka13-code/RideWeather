@@ -1,0 +1,103 @@
+name: RocketRide 3.6 flow and mobile layout fix
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[rr-3.6-patch]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore Plan Ride flow and navigation HUD
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text()
+
+          # Remove the earlier experimental HUD guards. They solved the hit-layer
+          # problem but also suppressed the route-ready navigation controls.
+          s=re.sub(r'<!-- RR-FINAL-NAV-DISMISS-2026-08-17 -->.*?</script>\s*', '', s, flags=re.S)
+          s=re.sub(r'<!-- RR-POST-ROUTE-HUD-GUARD-2026-08-17 -->.*?</script>\s*', '', s, flags=re.S)
+
+          marker='<!-- RR-3.6-FLOW-LAYOUT-FIX-2026-08-17 -->'
+          if marker not in s:
+              patch=r'''<!-- RR-3.6-FLOW-LAYOUT-FIX-2026-08-17 -->
+          <style id="rr-3-6-flow-layout">
+          /* Mobile controls: use the full viewport and never squeeze/clip labels. */
+          @media(max-width:700px){
+            .app-topbar{left:8px!important;right:8px!important;top:8px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;}
+            .app-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;}
+            .app-actions button{width:100%!important;min-width:0!important;max-width:none!important;height:48px!important;min-height:48px!important;padding:7px 3px!important;margin:0!important;box-sizing:border-box!important;border-radius:12px!important;font-size:12px!important;line-height:1.05!important;white-space:normal!important;overflow:hidden!important;text-overflow:clip!important;}
+            .app-actions #locateBtn{font-size:11px!important;}
+            #card.open{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;left:8px!important;right:8px!important;top:64px!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;}
+            #card.open .plan-header,#card.open .plan-section,#card.open .departure,#card.open .stops-section{max-width:100%!important;box-sizing:border-box!important;}
+          }
+          /* Closed navigation HUD is inert; open HUD is interactive. */
+          #navOverlay:not(.open){pointer-events:none!important;visibility:hidden!important;}
+          #navOverlay.open{pointer-events:auto!important;visibility:visible!important;}
+          </style>
+          <script id="rr-3-6-flow-js">
+          (function(){
+            function openPlan(){
+              var c=document.getElementById('card');
+              if(!c)return;
+              document.getElementById('mainMenuPanel')?.classList.remove('open');
+              document.getElementById('summary')?.classList.remove('open');
+              document.getElementById('savedModal')?.classList.remove('open');
+              document.getElementById('radarControls')?.classList.remove('open');
+              document.getElementById('routeQuickPanel')?.classList.remove('open');
+              document.getElementById('freeRidePanel')?.classList.remove('open');
+              c.classList.add('open');
+              c.setAttribute('aria-hidden','false');
+              window.scrollTo({top:0,behavior:'instant'});
+            }
+            function restoreRouteHud(){
+              var n=document.getElementById('navOverlay');
+              if(n && window.navHudAllowed){
+                n.classList.add('open');
+                n.setAttribute('aria-hidden','false');
+              }
+            }
+            function install(){
+              var b=document.getElementById('planBtn');
+              if(b && !b.__rr36){
+                b.__rr36=true;
+                b.addEventListener('click',function(e){
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openPlan();
+                },true);
+              }
+              var n=document.getElementById('navOverlay');
+              if(n && !n.__rr36obs){
+                n.__rr36obs=true;
+                new MutationObserver(function(){
+                  if(n.classList.contains('open')) document.body.classList.remove('rr-user-dismissed-nav');
+                }).observe(n,{attributes:true,attributeFilter:['class']});
+              }
+            }
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+            window.addEventListener('load',install,{once:true});
+            document.addEventListener('click',function(e){
+              if(e.target.closest?.('#planBtn'))openPlan();
+              if(e.target.closest?.('#calc'))setTimeout(restoreRouteHud,100);
+            },true);
+          })();
+          </script>
+          '''
+              s=s.replace('</head>',patch+'\n</head>')
+          p.write_text(s)
+          PY
+      - name: Commit patched index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot].com"
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Restore Plan Ride flow and mobile layout [rr-3.6-patch]"
+          git push
