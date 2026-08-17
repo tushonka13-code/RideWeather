@@ -87,7 +87,6 @@ jobs:
           if mobile_marker not in s:
               mobile_css=r'''<!-- RR-ROUTE-MOBILE-2026-08-17 -->
           <style id="rr-route-mobile-fix">
-          /* Mobile controls stay rectangular, readable, and inside the viewport. */
           @media(max-width:700px){
             .app-topbar{left:8px!important;right:8px!important;top:8px!important;width:auto!important;overflow:visible!important;box-sizing:border-box!important}
             .app-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;width:100%!important}
@@ -135,7 +134,6 @@ jobs:
             const chosen=currentRouteCandidates[index];
             const selectionToken=++routeBuildToken;
             lastStart=start;lastDest=dest;
-            // Selecting a route updates the map immediately. Weather and alerts are secondary data and must not block the UI.
             render(chosen.trip,start,dest,chosen.curve,currentRouteCandidates,index,lastWaypoints.length?lastWaypoints:[start,dest]);
             syncRouteChoiceSelection(index);
             $('weather').innerHTML='<div class="weather-note">Loading weather along selected route…</div>';
